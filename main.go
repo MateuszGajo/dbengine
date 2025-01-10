@@ -1,0 +1,10 @@
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	fmt.Println("Let's start with db")
+
+}
