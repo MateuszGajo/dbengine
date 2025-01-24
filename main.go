@@ -52,6 +52,384 @@ var PageSize = 4096
 var LegacyFileWriteFormat = 1
 var LegacyFileReadFormat = 1
 
+func BtreeHeaderValue() []byte {
+
+	// 1	The one-byte flag at offset 0 indicating the b-tree page type.
+
+	// A value of 2 (0x02) means the page is an interior index b-tree page.
+	// A value of 5 (0x05) means the page is an interior table b-tree page.
+	// A value of 10 (0x0a) means the page is a leaf index b-tree page.
+	// A value of 13 (0x0d) means the page is a leaf table b-tree page.
+
+	// Any other value for the b-tree page type is an error.
+
+	bTreePageType := intToBinary(0x0d, 1)
+	// 	The two-byte integer at offset 1 gives the start of the first freeblock on the page, or is zero if there are no freeblocks.
+	firstFreeBlockOnPage := intToBinary(0, 2)
+	// 	The two-byte integer at offset 3 gives the number of cells on the page.
+
+	numberOfCells := intToBinary(1, 2)
+	// we added one table so its 1
+	// 5	2	The two-byte integer at offset 5 designates the start of the cell content area. A zero value for this integer is interpreted as 65536.
+	//If a page contains no cells (which is only possible for a root page of a table that contains no rows) then the offset to the cell content area will equal the page size minus the bytes of reserved space. If the database uses a 65536-byte page size and the reserved space is zero (the usual value for reserved space) then the cell content offset of an empty page wants to be 65536. However, that integer is too large to be stored in a 2-byte unsigned integer, so a value of 0 is used in its place
+	//
+	startCell := 4096 - 8 - 2
+	startCellContentArea := intToBinary(startCell, 2)
+	// 	The one-byte integer at offset 7 gives the number of fragmented free bytes within the cell content area.
+	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
+	//The four-byte page number at offset 8 is the right-most pointer. This value appears in the header of interior b-tree pages only and is omitted from all other pages.
+	// right most pointer points to address fro mthe left side u see on xxd
+	// 00000000: 5351 4c69 7465 2066 6f72 6d61 7420 3300  SQLite format 3.
+	// 00000010: 1000 0101 0040 2020 0000 0003 0000 0003  .....@  ........
+	// 00000020: 0000 0000 0000 0000 0000 0002 0000 0004  ................
+	// 00000030: 0000 0000 0000 0000 0000 0001 0000 0000  ................
+	// 00000040: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+	// 00000050: 0000 0000 0000 0000 0000 0000 0000 0003  ................
+	// 00000060: 002e 7689 0d00 0000 020f 6600 0fb6 0f66  ..v.......f....f
+	// .... more bytes
+	// 00000f60: 0000 0000 0000 4e02 0617 1717 017d 7461  ......N......}ta
+	// 00000f70: 626c 6575 7365 7232 7573 6572 3203 4352  bleuser2user2.CR
+	// 00000f80: 4541 5445 2054 4142 4c45 2075 7365 7232  EATE TABLE user2
+	// 00000f90: 2869 6420 696e 7465 6765 7220 7072 696d  (id integer prim
+	// 00000fa0: 6172 7920 6b65 792c 206e 616d 6532 3232  ary key, name222
+	// 00000fb0: 2074 6578 7429 4801 0617 1515 0175 7461   text)H......uta
+	// 00000fc0: 626c 6575 7365 7275 7365 7202 4352 4541  bleuseruser.CREA
+	// 00000fd0: 5445 2054 4142 4c45 2075 7365 7228 6964  TE TABLE user(id
+	// 00000fe0: 2069 6e74 6567 6572 2070 7269 6d61 7279   integer primary
+	// 00000ff0: 206b 6579 2c20 6e61 6d65 2074 6578 7429   key, name text)
+
+	// There is rightpointer at 0f66, at is pointing to line 0f60 and then add 6 bytes so it after 00, so starting from 4e which is length of cell,
+	// there is also pointer 0fb6, that is point to 0fb0 and then add 6 bytes, so it stars from 48 which is cell length
+
+	cellAreaPointerFirst := intToBinary(startCell, 2)
+	cellAreaPointerTwo := intToBinary(0, 2)
+	data := []byte{}
+	data = append(data, bTreePageType...)
+	data = append(data, firstFreeBlockOnPage...)
+	data = append(data, numberOfCells...)
+	data = append(data, startCellContentArea...)
+	data = append(data, framgentedFreeBytesWithingCellContentArea...)
+	data = append(data, cellAreaPointerFirst...)
+	data = append(data, cellAreaPointerTwo...)
+
+	return data
+}
+
+func writeToFile(data []byte) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(pwd+"/aa.db", data, 0644)
+
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+func appendValues() []byte {
+	// table := "create table user(id integer primary key, name text)"
+	// table := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
+
+	// insertValueId := nil
+
+	cellLength := 8                          // 2 bytes, i think can be extended to more than 2???
+	emptyspace := 4096 - cellLength - 12 - 2 // page size - cell length - 112 headers, 2 bytes for byte for length and row id
+	emptySpaceBytes := make([]byte, emptyspace)
+	rowId := 1        // first row 2 byes
+	headerLength := 3 // number of column + current field 2 bytes
+	columnType1 := 0  // id is null
+	columnType2 := 23 // for table, 23-15/2 = 5 bytes and type text for 'alice'
+
+	value := "Alice"
+	// insert := "insert into user(name) values('Alice')"
+	// insertValueName := "Alice"
+
+	data := []byte{}
+	data = append(data, emptySpaceBytes...)
+	data = append(data, intToBinary(cellLength, 1)...)
+	data = append(data, intToBinary(rowId, 1)...)
+	data = append(data, intToBinary(headerLength, 1)...)
+	data = append(data, intToBinary(columnType1, 1)...)
+	data = append(data, intToBinary(columnType2, 1)...)
+	data = append(data, []byte(value)...)
+
+	return data
+}
+
+type BtreeType int
+
+const (
+	TableBtreeLeafCell     BtreeType = 0x0d
+	TableBtreeInteriorCell BtreeType = 0x5
+	IndexBtreeLeafCell     BtreeType = 0x0a
+	IndexBtreeInteriorCell BtreeType = 0x02
+)
+
+func IndexInteriorBtreeHeaderValue() []byte {
+
+	// 1	The one-byte flag at offset 0 indicating the b-tree page type.
+
+	// A value of 2 (0x02) means the page is an interior index b-tree page.
+	// A value of 5 (0x05) means the page is an interior table b-tree page.
+	// A value of 10 (0x0a) means the page is a leaf index b-tree page.
+	// A value of 13 (0x0d) means the page is a leaf table b-tree page.
+
+	// Any other value for the b-tree page type is an error.
+
+	headerLength := 12 // contains also right-most pointer
+
+	bTreePageType := intToBinary(int(IndexBtreeInteriorCell), 1)
+	// 	The two-byte integer at offset 1 gives the start of the first freeblock on the page, or is zero if there are no freeblocks.
+	firstFreeBlockOnPage := intToBinary(0, 2)
+	// 	The two-byte integer at offset 3 gives the number of cells on the page.
+
+	numberOfCells := intToBinary(1, 2)
+	// we added one table so its 1
+	// 5	2	The two-byte integer at offset 5 designates the start of the cell content area. A zero value for this integer is interpreted as 65536.
+	//If a page contains no cells (which is only possible for a root page of a table that contains no rows) then the offset to the cell content area will equal the page size minus the bytes of reserved space. If the database uses a 65536-byte page size and the reserved space is zero (the usual value for reserved space) then the cell content offset of an empty page wants to be 65536. However, that integer is too large to be stored in a 2-byte unsigned integer, so a value of 0 is used in its place
+	//
+	startCell := 4096 - headerLength - 2
+	startCellContentArea := intToBinary(startCell, 2)
+	// 	The one-byte integer at offset 7 gives the number of fragmented free bytes within the cell content area.
+	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
+	//The four-byte page number at offset 8 is the right-most pointer. This value appears in the header of interior b-tree pages only and is omitted from all other pages.
+	// right most pointer points to address fro mthe left side u see on xxd
+	// 00000000: 5351 4c69 7465 2066 6f72 6d61 7420 3300  SQLite format 3.
+	// 00000010: 1000 0101 0040 2020 0000 0003 0000 0003  .....@  ........
+	// 00000020: 0000 0000 0000 0000 0000 0002 0000 0004  ................
+	// 00000030: 0000 0000 0000 0000 0000 0001 0000 0000  ................
+	// 00000040: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+	// 00000050: 0000 0000 0000 0000 0000 0000 0000 0003  ................
+	// 00000060: 002e 7689 0d00 0000 020f 6600 0fb6 0f66  ..v.......f....f
+	// .... more bytes
+	// 00000f60: 0000 0000 0000 4e02 0617 1717 017d 7461  ......N......}ta
+	// 00000f70: 626c 6575 7365 7232 7573 6572 3203 4352  bleuser2user2.CR
+	// 00000f80: 4541 5445 2054 4142 4c45 2075 7365 7232  EATE TABLE user2
+	// 00000f90: 2869 6420 696e 7465 6765 7220 7072 696d  (id integer prim
+	// 00000fa0: 6172 7920 6b65 792c 206e 616d 6532 3232  ary key, name222
+	// 00000fb0: 2074 6578 7429 4801 0617 1515 0175 7461   text)H......uta
+	// 00000fc0: 626c 6575 7365 7275 7365 7202 4352 4541  bleuseruser.CREA
+	// 00000fd0: 5445 2054 4142 4c45 2075 7365 7228 6964  TE TABLE user(id
+	// 00000fe0: 2069 6e74 6567 6572 2070 7269 6d61 7279   integer primary
+	// 00000ff0: 206b 6579 2c20 6e61 6d65 2074 6578 7429   key, name text)
+
+	// There is rightpointer at 0f66, at is pointing to line 0f60 and then add 6 bytes so it after 00, so starting from 4e which is length of cell,
+	// there is also pointer 0fb6, that is point to 0fb0 and then add 6 bytes, so it stars from 48 which is cell length
+
+	rightMostPointer := intToBinary(0, 4)
+	cellAreaPointerFirst := intToBinary(startCell, 2)
+
+	data := []byte{}
+	data = append(data, bTreePageType...)
+	data = append(data, firstFreeBlockOnPage...)
+	data = append(data, numberOfCells...)
+	data = append(data, startCellContentArea...)
+	data = append(data, framgentedFreeBytesWithingCellContentArea...)
+	data = append(data, rightMostPointer...)
+
+	// cellAreaPointerTwo := intToBinary(0, 2)
+
+	data = append(data, cellAreaPointerFirst...)
+	// data = append(data, cellAreaPointerTwo...)
+
+	return data
+}
+func interiorBtreeHeaderValue() []byte {
+
+	// 1	The one-byte flag at offset 0 indicating the b-tree page type.
+
+	// A value of 2 (0x02) means the page is an interior index b-tree page.
+	// A value of 5 (0x05) means the page is an interior table b-tree page.
+	// A value of 10 (0x0a) means the page is a leaf index b-tree page.
+	// A value of 13 (0x0d) means the page is a leaf table b-tree page.
+
+	// Any other value for the b-tree page type is an error.
+
+	headerLength := 8 // contains also right-most pointer
+
+	bTreePageType := intToBinary(int(IndexBtreeInteriorCell), 1)
+	// 	The two-byte integer at offset 1 gives the start of the first freeblock on the page, or is zero if there are no freeblocks.
+	firstFreeBlockOnPage := intToBinary(0, 2)
+	// 	The two-byte integer at offset 3 gives the number of cells on the page.
+
+	numberOfCells := intToBinary(1, 2)
+	// we added one table so its 1
+	// 5	2	The two-byte integer at offset 5 designates the start of the cell content area. A zero value for this integer is interpreted as 65536.
+	//If a page contains no cells (which is only possible for a root page of a table that contains no rows) then the offset to the cell content area will equal the page size minus the bytes of reserved space. If the database uses a 65536-byte page size and the reserved space is zero (the usual value for reserved space) then the cell content offset of an empty page wants to be 65536. However, that integer is too large to be stored in a 2-byte unsigned integer, so a value of 0 is used in its place
+	//
+	startCell := 4096 - headerLength - 2
+	startCellContentArea := intToBinary(startCell, 2)
+	// 	The one-byte integer at offset 7 gives the number of fragmented free bytes within the cell content area.
+	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
+	//The four-byte page number at offset 8 is the right-most pointer. This value appears in the header of interior b-tree pages only and is omitted from all other pages.
+	// right most pointer points to address fro mthe left side u see on xxd
+	// 00000000: 5351 4c69 7465 2066 6f72 6d61 7420 3300  SQLite format 3.
+	// 00000010: 1000 0101 0040 2020 0000 0003 0000 0003  .....@  ........
+	// 00000020: 0000 0000 0000 0000 0000 0002 0000 0004  ................
+	// 00000030: 0000 0000 0000 0000 0000 0001 0000 0000  ................
+	// 00000040: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+	// 00000050: 0000 0000 0000 0000 0000 0000 0000 0003  ................
+	// 00000060: 002e 7689 0d00 0000 020f 6600 0fb6 0f66  ..v.......f....f
+	// .... more bytes
+	// 00000f60: 0000 0000 0000 4e02 0617 1717 017d 7461  ......N......}ta
+	// 00000f70: 626c 6575 7365 7232 7573 6572 3203 4352  bleuser2user2.CR
+	// 00000f80: 4541 5445 2054 4142 4c45 2075 7365 7232  EATE TABLE user2
+	// 00000f90: 2869 6420 696e 7465 6765 7220 7072 696d  (id integer prim
+	// 00000fa0: 6172 7920 6b65 792c 206e 616d 6532 3232  ary key, name222
+	// 00000fb0: 2074 6578 7429 4801 0617 1515 0175 7461   text)H......uta
+	// 00000fc0: 626c 6575 7365 7275 7365 7202 4352 4541  bleuseruser.CREA
+	// 00000fd0: 5445 2054 4142 4c45 2075 7365 7228 6964  TE TABLE user(id
+	// 00000fe0: 2069 6e74 6567 6572 2070 7269 6d61 7279   integer primary
+	// 00000ff0: 206b 6579 2c20 6e61 6d65 2074 6578 7429   key, name text)
+
+	// There is rightpointer at 0f66, at is pointing to line 0f60 and then add 6 bytes so it after 00, so starting from 4e which is length of cell,
+	// there is also pointer 0fb6, that is point to 0fb0 and then add 6 bytes, so it stars from 48 which is cell length
+
+	cellAreaPointerFirst := intToBinary(startCell, 2)
+
+	data := []byte{}
+	data = append(data, bTreePageType...)
+	data = append(data, firstFreeBlockOnPage...)
+	data = append(data, numberOfCells...)
+	data = append(data, startCellContentArea...)
+	data = append(data, framgentedFreeBytesWithingCellContentArea...)
+
+	// cellAreaPointerTwo := intToBinary(0, 2)
+
+	data = append(data, cellAreaPointerFirst...)
+	// data = append(data, cellAreaPointerTwo...)
+
+	return data
+}
+
+func interiroBtreeValues() []byte {
+	// 2 bytes, i think can be extended to more than 2???
+
+	// rowId := 1        // first row 2 byes
+	headerLength := 3 // number of column + current field 2 bytes
+	columnType1 := 23 // for table, 23-15/2 = 5 bytes and type text for 'alice'
+	columnType2 := 1  // id is null
+
+	value1 := "Alice"
+	value2 := 1
+	// insert := "insert into user(name) values('Alice')"
+	// insertValueName := "Alice"
+	cellLength := 3 + len(value1) + 1           // header length + x2 column type     +length of values, +
+	emptyspace := 4096 - cellLength - 8 - 2 - 1 // page size - cell length - 8 headers, 2 for one byte cell pointer, 1 bytes for byte for length
+	emptySpaceBytes := make([]byte, emptyspace)
+
+	data := []byte{}
+	data = append(data, emptySpaceBytes...)
+	data = append(data, intToBinary(cellLength, 1)...)
+	data = append(data, intToBinary(headerLength, 1)...)
+	data = append(data, intToBinary(columnType1, 1)...)
+	data = append(data, intToBinary(columnType2, 1)...)
+	data = append(data, []byte(value1)...)
+	data = append(data, intToBinary(value2, 1)...)
+
+	return data
+}
+
+func leafIndexBtreeHeaderValue() []byte {
+
+	// 1	The one-byte flag at offset 0 indicating the b-tree page type.
+
+	// A value of 2 (0x02) means the page is an interior index b-tree page.
+	// A value of 5 (0x05) means the page is an interior table b-tree page.
+	// A value of 10 (0x0a) means the page is a leaf index b-tree page.
+	// A value of 13 (0x0d) means the page is a leaf table b-tree page.
+
+	// Any other value for the b-tree page type is an error.
+
+	headerLength := 8 // contains also right-most pointer
+
+	bTreePageType := intToBinary(int(IndexBtreeLeafCell), 1)
+	// 	The two-byte integer at offset 1 gives the start of the first freeblock on the page, or is zero if there are no freeblocks.
+	firstFreeBlockOnPage := intToBinary(0, 2)
+	// 	The two-byte integer at offset 3 gives the number of cells on the page.
+
+	numberOfCells := intToBinary(1, 2)
+	// we added one table so its 1
+	// 5	2	The two-byte integer at offset 5 designates the start of the cell content area. A zero value for this integer is interpreted as 65536.
+	//If a page contains no cells (which is only possible for a root page of a table that contains no rows) then the offset to the cell content area will equal the page size minus the bytes of reserved space. If the database uses a 65536-byte page size and the reserved space is zero (the usual value for reserved space) then the cell content offset of an empty page wants to be 65536. However, that integer is too large to be stored in a 2-byte unsigned integer, so a value of 0 is used in its place
+	//
+	startCell := 4096 - headerLength - 2
+	startCellContentArea := intToBinary(startCell, 2)
+	// 	The one-byte integer at offset 7 gives the number of fragmented free bytes within the cell content area.
+	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
+	//The four-byte page number at offset 8 is the right-most pointer. This value appears in the header of interior b-tree pages only and is omitted from all other pages.
+	// right most pointer points to address fro mthe left side u see on xxd
+	// 00000000: 5351 4c69 7465 2066 6f72 6d61 7420 3300  SQLite format 3.
+	// 00000010: 1000 0101 0040 2020 0000 0003 0000 0003  .....@  ........
+	// 00000020: 0000 0000 0000 0000 0000 0002 0000 0004  ................
+	// 00000030: 0000 0000 0000 0000 0000 0001 0000 0000  ................
+	// 00000040: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+	// 00000050: 0000 0000 0000 0000 0000 0000 0000 0003  ................
+	// 00000060: 002e 7689 0d00 0000 020f 6600 0fb6 0f66  ..v.......f....f
+	// .... more bytes
+	// 00000f60: 0000 0000 0000 4e02 0617 1717 017d 7461  ......N......}ta
+	// 00000f70: 626c 6575 7365 7232 7573 6572 3203 4352  bleuser2user2.CR
+	// 00000f80: 4541 5445 2054 4142 4c45 2075 7365 7232  EATE TABLE user2
+	// 00000f90: 2869 6420 696e 7465 6765 7220 7072 696d  (id integer prim
+	// 00000fa0: 6172 7920 6b65 792c 206e 616d 6532 3232  ary key, name222
+	// 00000fb0: 2074 6578 7429 4801 0617 1515 0175 7461   text)H......uta
+	// 00000fc0: 626c 6575 7365 7275 7365 7202 4352 4541  bleuseruser.CREA
+	// 00000fd0: 5445 2054 4142 4c45 2075 7365 7228 6964  TE TABLE user(id
+	// 00000fe0: 2069 6e74 6567 6572 2070 7269 6d61 7279   integer primary
+	// 00000ff0: 206b 6579 2c20 6e61 6d65 2074 6578 7429   key, name text)
+
+	// There is rightpointer at 0f66, at is pointing to line 0f60 and then add 6 bytes so it after 00, so starting from 4e which is length of cell,
+	// there is also pointer 0fb6, that is point to 0fb0 and then add 6 bytes, so it stars from 48 which is cell length
+
+	cellAreaPointerFirst := intToBinary(startCell, 2)
+
+	data := []byte{}
+	data = append(data, bTreePageType...)
+	data = append(data, firstFreeBlockOnPage...)
+	data = append(data, numberOfCells...)
+	data = append(data, startCellContentArea...)
+	data = append(data, framgentedFreeBytesWithingCellContentArea...)
+
+	// cellAreaPointerTwo := intToBinary(0, 2)
+
+	data = append(data, cellAreaPointerFirst...)
+	// data = append(data, cellAreaPointerTwo...)
+
+	return data
+}
+
+func leafIndexBtreeValues() []byte {
+	// 2 bytes, i think can be extended to more than 2???
+
+	// rowId := 1        // first row 2 byes
+	headerLength := 3 // number of column + current field 2 bytes
+	columnType1 := 23 // for table, 23-15/2 = 5 bytes and type text for 'alice'
+	columnType2 := 1  // id is null
+
+	value1 := "Alice"
+	value2 := 1
+	// insert := "insert into user(name) values('Alice')"
+	// insertValueName := "Alice"
+	cellLength := 3 + len(value1) + 1           // header length + x2 column type     +length of values, +
+	emptyspace := 4096 - cellLength - 8 - 2 - 1 // page size - cell length - 8 headers, 2 for one byte cell pointer, 1 bytes for byte for length
+	emptySpaceBytes := make([]byte, emptyspace)
+
+	data := []byte{}
+	data = append(data, emptySpaceBytes...)
+	data = append(data, intToBinary(cellLength, 1)...)
+	data = append(data, intToBinary(headerLength, 1)...)
+	data = append(data, intToBinary(columnType1, 1)...)
+	data = append(data, intToBinary(columnType2, 1)...)
+	data = append(data, []byte(value1)...)
+	data = append(data, intToBinary(value2, 1)...)
+
+	return data
+}
+
+var input = ""
+
 func header() []byte {
 	headerString := []byte("SQLite format 3\000")
 	pageSize := intToBinary(PageSize, 2)
@@ -143,228 +521,187 @@ func header() []byte {
 	return data
 }
 
-func BtreeHeaderSchema() []byte {
+type QueryType string
 
-	// 1	The one-byte flag at offset 0 indicating the b-tree page type.
+const (
+	QueryTypeTable QueryType = "table"
+	QueryTypeIndex QueryType = "index"
+)
 
-	// A value of 2 (0x02) means the page is an interior index b-tree page.
-	// A value of 5 (0x05) means the page is an interior table b-tree page.
-	// A value of 10 (0x0a) means the page is a leaf index b-tree page.
-	// A value of 13 (0x0d) means the page is a leaf table b-tree page.
+// func uint16ToByte(val uint16) []byte {
+// 	result := make([]byte, )
+// 	binary.BigEndian.PutUint16(result, val)
 
-	// Any other value for the b-tree page type is an error.
+// 	return result
+// }
 
-	bTreePageType := intToBinary(0x0d, 1)
-	// 	The two-byte integer at offset 1 gives the start of the first freeblock on the page, or is zero if there are no freeblocks.
+func calculateTextLength(value string) []byte {
+
+	stringLen := 2*len(value) + 13
+
+	if stringLen <= 255 {
+		return []byte{byte(uint8(stringLen))}
+	} else {
+		//TODO: implement this
+		panic("implement calculate text length")
+	}
+}
+
+func createACell(userval string, queryParts []string, page any) (int, []byte) {
+	// TODO: Should be read from previous row
+	var internalIndexForSchema = 1
+	var schemaRowId = 0
+
+	schemaRowId++
+	internalIndexForSchema++
+
+	if len(queryParts) < 3 {
+		panic("query parts less than 3")
+	}
+
+	if len(queryParts) < 4 {
+		queryParts = append(queryParts, queryParts[2])
+	}
+
+	columnOneValue := queryParts[1]
+	columnTwoValue := queryParts[2]
+	columnThreeValue := queryParts[3]
+	columnFourValue := internalIndexForSchema
+	columnFifthValue := userval
+
+	columnOneLength := calculateTextLength(columnOneValue)
+	columnTwoLength := calculateTextLength(columnTwoValue)
+	columnThreeLength := calculateTextLength(columnThreeValue)
+	columnFourLength := 1 // Value is an 8-bit twos-complement integer.
+	columnFifthLength := calculateTextLength(columnFifthValue)
+
+	headerLength := 5 + 1 // 5 column + 1 for current byte
+	rowId := schemaRowId  // first row 2 byes
+	// valueLen := len(value)
+
+	row := []byte{byte(rowId)}
+	row = append(row, byte(headerLength))
+	row = append(row, columnOneLength...)
+	row = append(row, columnTwoLength...)
+	row = append(row, columnThreeLength...)
+	row = append(row, byte(columnFourLength))
+	row = append(row, columnFifthLength...)
+	row = append(row, []byte(columnOneValue)...)
+	row = append(row, []byte(columnTwoValue)...)
+	row = append(row, []byte(columnThreeValue)...)
+	row = append(row, byte(uint8(columnFourValue)))
+	row = append(row, []byte(columnFifthValue)...)
+
+	rowLength := len(row)
+
+	zeros := make([]byte, 3911)
+
+	result := zeros
+	result = append(result, byte(rowLength))
+	result = append(result, row...)
+
+	return rowLength, result
+}
+
+func uint16toByte(val uint16) []byte {
+	result := make([]byte, 2)
+
+	binary.BigEndian.PutUint16(result, val)
+
+	return result
+}
+
+func BtreeHeaderSchema(rowLengthAdded []int, rowAdded int) []byte {
+	//This should be read from the page
+	var currentNumberOfCell = 0
+	var currentCellStart = PageSize
+
+	currentNumberOfCell += rowAdded
+	for _, v := range rowLengthAdded {
+		currentCellStart -= v
+	}
+
+	bTreePageType := intToBinary(int(TableBtreeLeafCell), 1)
 	firstFreeBlockOnPage := intToBinary(0, 2)
-	// 	The two-byte integer at offset 3 gives the number of cells on the page.
+	numberOfCells := intToBinary(currentNumberOfCell, 2)
 
-	numberOfCells := intToBinary(1, 2)
-	// we added one table so its 1
-	// 5	2	The two-byte integer at offset 5 designates the start of the cell content area. A zero value for this integer is interpreted as 65536.
-	//If a page contains no cells (which is only possible for a root page of a table that contains no rows) then the offset to the cell content area will equal the page size minus the bytes of reserved space. If the database uses a 65536-byte page size and the reserved space is zero (the usual value for reserved space) then the cell content offset of an empty page wants to be 65536. However, that integer is too large to be stored in a 2-byte unsigned integer, so a value of 0 is used in its place
-	//
-	startCell := 4096 - 73 - 2
-	startCellContentArea := intToBinary(startCell, 2)
-	// 	The one-byte integer at offset 7 gives the number of fragmented free bytes within the cell content area.
+	startCellContentArea := intToBinary(currentCellStart, 2)
 	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
-	//The four-byte page number at offset 8 is the right-most pointer. This value appears in the header of interior b-tree pages only and is omitted from all other pages.
-	// right most pointer points to address fro mthe left side u see on xxd
-	// 00000000: 5351 4c69 7465 2066 6f72 6d61 7420 3300  SQLite format 3.
-	// 00000010: 1000 0101 0040 2020 0000 0003 0000 0003  .....@  ........
-	// 00000020: 0000 0000 0000 0000 0000 0002 0000 0004  ................
-	// 00000030: 0000 0000 0000 0000 0000 0001 0000 0000  ................
-	// 00000040: 0000 0000 0000 0000 0000 0000 0000 0000  ................
-	// 00000050: 0000 0000 0000 0000 0000 0000 0000 0003  ................
-	// 00000060: 002e 7689 0d00 0000 020f 6600 0fb6 0f66  ..v.......f....f
-	// .... more bytes
-	// 00000f60: 0000 0000 0000 4e02 0617 1717 017d 7461  ......N......}ta
-	// 00000f70: 626c 6575 7365 7232 7573 6572 3203 4352  bleuser2user2.CR
-	// 00000f80: 4541 5445 2054 4142 4c45 2075 7365 7232  EATE TABLE user2
-	// 00000f90: 2869 6420 696e 7465 6765 7220 7072 696d  (id integer prim
-	// 00000fa0: 6172 7920 6b65 792c 206e 616d 6532 3232  ary key, name222
-	// 00000fb0: 2074 6578 7429 4801 0617 1515 0175 7461   text)H......uta
-	// 00000fc0: 626c 6575 7365 7275 7365 7202 4352 4541  bleuseruser.CREA
-	// 00000fd0: 5445 2054 4142 4c45 2075 7365 7228 6964  TE TABLE user(id
-	// 00000fe0: 2069 6e74 6567 6572 2070 7269 6d61 7279   integer primary
-	// 00000ff0: 206b 6579 2c20 6e61 6d65 2074 6578 7429   key, name text)
 
-	// There is rightpointer at 0f66, at is pointing to line 0f60 and then add 6 bytes so it after 00, so starting from 4e which is length of cell,
-	// there is also pointer 0fb6, that is point to 0fb0 and then add 6 bytes, so it stars from 48 which is cell length
-
-	rightMostPointerFirstPart := intToBinary(startCell, 2)
-	rightMostPointerSecondPart := intToBinary(0, 2)
 	data := []byte{}
 	data = append(data, bTreePageType...)
 	data = append(data, firstFreeBlockOnPage...)
 	data = append(data, numberOfCells...)
 	data = append(data, startCellContentArea...)
 	data = append(data, framgentedFreeBytesWithingCellContentArea...)
-	data = append(data, rightMostPointerFirstPart...)
-	data = append(data, rightMostPointerSecondPart...)
 
-	return data
-}
-
-func BtreeHeaderValue() []byte {
-
-	// 1	The one-byte flag at offset 0 indicating the b-tree page type.
-
-	// A value of 2 (0x02) means the page is an interior index b-tree page.
-	// A value of 5 (0x05) means the page is an interior table b-tree page.
-	// A value of 10 (0x0a) means the page is a leaf index b-tree page.
-	// A value of 13 (0x0d) means the page is a leaf table b-tree page.
-
-	// Any other value for the b-tree page type is an error.
-
-	bTreePageType := intToBinary(0x0d, 1)
-	// 	The two-byte integer at offset 1 gives the start of the first freeblock on the page, or is zero if there are no freeblocks.
-	firstFreeBlockOnPage := intToBinary(0, 2)
-	// 	The two-byte integer at offset 3 gives the number of cells on the page.
-
-	numberOfCells := intToBinary(1, 2)
-	// we added one table so its 1
-	// 5	2	The two-byte integer at offset 5 designates the start of the cell content area. A zero value for this integer is interpreted as 65536.
-	//If a page contains no cells (which is only possible for a root page of a table that contains no rows) then the offset to the cell content area will equal the page size minus the bytes of reserved space. If the database uses a 65536-byte page size and the reserved space is zero (the usual value for reserved space) then the cell content offset of an empty page wants to be 65536. However, that integer is too large to be stored in a 2-byte unsigned integer, so a value of 0 is used in its place
-	//
-	startCell := 4096 - 8 - 2
-	startCellContentArea := intToBinary(startCell, 2)
-	// 	The one-byte integer at offset 7 gives the number of fragmented free bytes within the cell content area.
-	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
-	//The four-byte page number at offset 8 is the right-most pointer. This value appears in the header of interior b-tree pages only and is omitted from all other pages.
-	// right most pointer points to address fro mthe left side u see on xxd
-	// 00000000: 5351 4c69 7465 2066 6f72 6d61 7420 3300  SQLite format 3.
-	// 00000010: 1000 0101 0040 2020 0000 0003 0000 0003  .....@  ........
-	// 00000020: 0000 0000 0000 0000 0000 0002 0000 0004  ................
-	// 00000030: 0000 0000 0000 0000 0000 0001 0000 0000  ................
-	// 00000040: 0000 0000 0000 0000 0000 0000 0000 0000  ................
-	// 00000050: 0000 0000 0000 0000 0000 0000 0000 0003  ................
-	// 00000060: 002e 7689 0d00 0000 020f 6600 0fb6 0f66  ..v.......f....f
-	// .... more bytes
-	// 00000f60: 0000 0000 0000 4e02 0617 1717 017d 7461  ......N......}ta
-	// 00000f70: 626c 6575 7365 7232 7573 6572 3203 4352  bleuser2user2.CR
-	// 00000f80: 4541 5445 2054 4142 4c45 2075 7365 7232  EATE TABLE user2
-	// 00000f90: 2869 6420 696e 7465 6765 7220 7072 696d  (id integer prim
-	// 00000fa0: 6172 7920 6b65 792c 206e 616d 6532 3232  ary key, name222
-	// 00000fb0: 2074 6578 7429 4801 0617 1515 0175 7461   text)H......uta
-	// 00000fc0: 626c 6575 7365 7275 7365 7202 4352 4541  bleuseruser.CREA
-	// 00000fd0: 5445 2054 4142 4c45 2075 7365 7228 6964  TE TABLE user(id
-	// 00000fe0: 2069 6e74 6567 6572 2070 7269 6d61 7279   integer primary
-	// 00000ff0: 206b 6579 2c20 6e61 6d65 2074 6578 7429   key, name text)
-
-	// There is rightpointer at 0f66, at is pointing to line 0f60 and then add 6 bytes so it after 00, so starting from 4e which is length of cell,
-	// there is also pointer 0fb6, that is point to 0fb0 and then add 6 bytes, so it stars from 48 which is cell length
-
-	rightMostPointerFirstPart := intToBinary(startCell, 2)
-	rightMostPointerSecondPart := intToBinary(0, 2)
-	data := []byte{}
-	data = append(data, bTreePageType...)
-	data = append(data, firstFreeBlockOnPage...)
-	data = append(data, numberOfCells...)
-	data = append(data, startCellContentArea...)
-	data = append(data, framgentedFreeBytesWithingCellContentArea...)
-	data = append(data, rightMostPointerFirstPart...)
-	data = append(data, rightMostPointerSecondPart...)
-
-	return data
-}
-
-func writeToFile(data []byte) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(pwd+"/aa.db", data, 0644)
-
-	if err != nil {
-		panic(err)
+	for _, v := range rowLengthAdded {
+		fmt.Println("calcualte pointer")
+		var currentCellStart = PageSize
+		newPointer := currentCellStart - v
+		fmt.Println(newPointer)
+		fmt.Println(uint16toByte(uint16(newPointer)))
+		data = append(data, uint16toByte(uint16(newPointer))...)
 	}
 
-}
-
-func appendQuery() []byte {
-	// table := "create table user(id integer primary key, name text)"
-	// table := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
-
-	// insertValueId := nil
-
-	cellLength := 73                          // 2 bytes, i think can be extended to more than 2???
-	emptyspace := 4096 - cellLength - 112 - 2 // page size - cell length - 112 headers, 2 bytes for byte for length and row id
-	emptySpaceBytes := make([]byte, emptyspace)
-	rowId := 1         // first row 2 byes
-	headerLength := 6  // number of column + current field 2 bytes
-	tableType1 := 23   // for table, 23-17/2 = 5 bytes and type text for 'table'
-	tableType2 := 21   // for table, 21-15/2 = 4 bytes and type text for 'user'
-	tableType3 := 21   // for table, 21-15/2 = 4 bytes and type text for 'user'
-	columnType1 := 01  // integer for primary key
-	columnType2 := 119 // text 117-13/2 = 52 this is for CREATE TABLE user(id INTEGER PRIMARY KEY, name TEXT)
-
-	tableSqlpart1 := "tableuseruser"
-	tableSqlpart2Id := 2
-	tableSqlpart3 := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
-	// insert := "insert into user(name) values('Alice')"
-	// insertValueName := "Alice"
-
-	data := []byte{}
-	data = append(data, emptySpaceBytes...)
-	data = append(data, intToBinary(cellLength, 1)...)
-	data = append(data, intToBinary(rowId, 1)...)
-	data = append(data, intToBinary(headerLength, 1)...)
-	data = append(data, intToBinary(tableType1, 1)...)
-	data = append(data, intToBinary(tableType2, 1)...)
-	data = append(data, intToBinary(tableType3, 1)...)
-	data = append(data, intToBinary(columnType1, 1)...)
-	data = append(data, intToBinary(columnType2, 1)...)
-	data = append(data, []byte(tableSqlpart1)...)
-	data = append(data, intToBinary(tableSqlpart2Id, 1)...)
-	data = append(data, []byte(tableSqlpart3)...)
-
 	return data
 }
 
-func appendValues() []byte {
-	// table := "create table user(id integer primary key, name text)"
-	// table := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
+func parseQuery(input string) {
 
-	// insertValueId := nil
+}
 
-	cellLength := 8                          // 2 bytes, i think can be extended to more than 2???
-	emptyspace := 4096 - cellLength - 12 - 2 // page size - cell length - 112 headers, 2 bytes for byte for length and row id
-	emptySpaceBytes := make([]byte, emptyspace)
-	rowId := 1        // first row 2 byes
-	headerLength := 3 // number of column + current field 2 bytes
-	columnType1 := 0  // id is null
-	columnType2 := 23 // for table, 23-15/2 = 5 bytes and type text for 'alice'
-
-	value := "Alice"
-	// insert := "insert into user(name) values('Alice')"
-	// insertValueName := "Alice"
-
-	data := []byte{}
-	data = append(data, emptySpaceBytes...)
-	data = append(data, intToBinary(cellLength, 1)...)
-	data = append(data, intToBinary(rowId, 1)...)
-	data = append(data, intToBinary(headerLength, 1)...)
-	data = append(data, intToBinary(columnType1, 1)...)
-	data = append(data, intToBinary(columnType2, 1)...)
-	data = append(data, []byte(value)...)
-
-	return data
+type UserData struct {
+	input     string
+	queryData []string
 }
 
 func main() {
 	fmt.Println("Let's start with db")
+	// tableSqlpart1 := "tableuseruser"
+	// tableSqlpart2Id := 2
+	// tableSqlpart3 := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
 
 	header := header()
-	btreeHeaderSchema := BtreeHeaderSchema()
-	cell := appendQuery()
-	btreeHeaderValue := BtreeHeaderValue()
-	value := appendValues()
+
+	var userData []UserData
+
+	var userData1 = UserData{
+		input:     "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)",
+		queryData: []string{"create", "table", "user"},
+	}
+
+	userData = append(userData, userData1)
+
+	rowLengthAdded := []int{}
+	rowDataAdded := []byte{}
+	numberOfRowAdded := 0
+
+	for _, v := range userData {
+		rowLength, row := createACell(v.input, v.queryData, []byte{})
+		rowLengthAdded = append(rowLengthAdded, rowLength)
+		rowDataAdded = append(rowDataAdded, row...)
+		numberOfRowAdded++
+	}
+
+	btreeHeaderSchema := BtreeHeaderSchema(rowLengthAdded, numberOfRowAdded)
+
+	// btreeHeaderValue := BtreeHeaderValue()
+	// value := appendValues()
+	// // btreeHeaderValue1 := interiorBtreeHeaderValue()
+	// // value2 := interiroBtreeValues()
+
+	// leafHeader := leafIndexBtreeHeaderValue()
+	// leafValue := leafIndexBtreeValues()
 	allData := header
 	allData = append(allData, btreeHeaderSchema...)
-	allData = append(allData, cell...)
-	allData = append(allData, btreeHeaderValue...)
-	allData = append(allData, value...)
+	allData = append(allData, rowDataAdded...)
+	// allData = append(allData, btreeHeaderValue1...)
+	// allData = append(allData, value2...)
+	// allData = append(allData, leafHeader...)
+	// allData = append(allData, leafValue...)
+	// allData = append(allData, btreeHeaderValue...)
+	// allData = append(allData, value...)
 	writeToFile(allData)
 
 }
