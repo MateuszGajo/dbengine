@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -547,10 +548,10 @@ func calculateTextLength(value string) []byte {
 	}
 }
 
-func createACell(userval string, queryParts []string, page any) (int, []byte) {
+func createACell(userval string, queryParts []string, latestRow LastPageParseLatestRow) (int, []byte) {
 	// TODO: Should be read from previous row
 	var internalIndexForSchema = 1
-	var schemaRowId = 0
+	var schemaRowId = latestRow.rowId
 
 	schemaRowId++
 	internalIndexForSchema++
@@ -592,12 +593,9 @@ func createACell(userval string, queryParts []string, page any) (int, []byte) {
 	row = append(row, byte(uint8(columnFourValue)))
 	row = append(row, []byte(columnFifthValue)...)
 
-	rowLength := len(row)
+	rowLength := len(row) - 1 // we don't count row id i guess
 
-	zeros := make([]byte, 3911)
-
-	result := zeros
-	result = append(result, byte(rowLength))
+	result := []byte{byte(rowLength)}
 	result = append(result, row...)
 
 	return rowLength, result
@@ -611,15 +609,19 @@ func uint16toByte(val uint16) []byte {
 	return result
 }
 
-func BtreeHeaderSchema(rowLengthAdded []int, rowAdded int) []byte {
+func BtreeHeaderSchema(rowPointerAdded []byte, rowAdded int, rowsAddedLength int, parsedData LastPageParsed) []byte {
 	//This should be read from the page
-	var currentNumberOfCell = 0
-	var currentCellStart = PageSize
+	var currentNumberOfCell = parsedData.numberofCells
+	var currentCellStart = parsedData.startCellContentArea
 
 	currentNumberOfCell += rowAdded
-	for _, v := range rowLengthAdded {
-		currentCellStart -= v
-	}
+
+	currentCellStart -= rowsAddedLength
+
+	// currentNumberOfCell += rowAdded
+	// for _, v := range rowLengthAdded {
+	// 	currentCellStart -= v
+	// }
 
 	bTreePageType := intToBinary(int(TableBtreeLeafCell), 1)
 	firstFreeBlockOnPage := intToBinary(0, 2)
@@ -634,15 +636,7 @@ func BtreeHeaderSchema(rowLengthAdded []int, rowAdded int) []byte {
 	data = append(data, numberOfCells...)
 	data = append(data, startCellContentArea...)
 	data = append(data, framgentedFreeBytesWithingCellContentArea...)
-
-	for _, v := range rowLengthAdded {
-		fmt.Println("calcualte pointer")
-		var currentCellStart = PageSize
-		newPointer := currentCellStart - v
-		fmt.Println(newPointer)
-		fmt.Println(uint16toByte(uint16(newPointer)))
-		data = append(data, uint16toByte(uint16(newPointer))...)
-	}
+	data = append(data, rowPointerAdded...)
 
 	return data
 }
@@ -656,11 +650,175 @@ type UserData struct {
 	queryData []string
 }
 
+func readDbPage(pageNumber int) []byte {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := os.Stat(pwd + "/aa.db"); os.IsNotExist(err) {
+		return []byte{}
+	}
+	fd, err := os.Open(pwd + "/aa.db") // Adjust path as needed
+	if err != nil {
+		panic(err)
+	}
+	defer fd.Close()
+
+	fd.Seek(int64(pageNumber)*int64(PageSize), 0)
+
+	buff := make([]byte, PageSize) // Create a buffer for 1024 bytes
+	n, err := io.ReadFull(fd, buff)
+	if err != nil && err != io.EOF { // Handle EOF and other errors
+		fmt.Println("Error reading file:", err)
+		return nil
+	}
+
+	fmt.Printf("Number of bytes read: %d\n", n)
+	fmt.Printf("Data: %v\n", buff[:n]) // Only print the bytes read
+
+	return buff[:n] // Return the bytes actually read
+}
+
+type LastPageParseLatestRow struct {
+	rowId int
+	data  []byte
+}
+
+type LastPageParsed struct {
+	btreeType            int
+	freeBlock            int
+	numberofCells        int
+	startCellContentArea int
+	framgenetedArea      int
+	rightMostpointer     []byte
+	pointers             [][]byte
+	cellArea             []byte
+	latesRow             LastPageParseLatestRow
+}
+
+func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
+	if len(data) == 0 {
+		return LastPageParsed{
+			// btreeType:            int(TableBtreeLeafCell),
+			numberofCells:        0,
+			startCellContentArea: PageSize,
+			cellArea:             []byte{},
+			pointers:             [][]byte{},
+			latesRow: LastPageParseLatestRow{
+				rowId: 0,
+				data:  []byte{},
+			},
+		}
+	}
+	dataToParse := data
+	if isFirstPage {
+		//Skip header for now
+		dataToParse = dataToParse[100:]
+	}
+
+	btreeType := dataToParse[0]
+	isPointerValue := false
+	switch BtreeType(btreeType) {
+	case TableBtreeInteriorCell, IndexBtreeInteriorCell:
+		isPointerValue = true
+
+	}
+	freebBlocks := dataToParse[1:3]
+	if freebBlocks[0] != 0 {
+		fmt.Println(freebBlocks)
+		panic("implement free blocks more than 0 cell")
+	}
+	freeBlocksInt := int(freebBlocks[1])
+	numberofCells := dataToParse[3:5]
+	if numberofCells[0] != 0 {
+		fmt.Println(numberofCells)
+		panic("implement number of cell more than 0 cell")
+	}
+	numberofCellsInt := int(numberofCells[1])
+	startCellContentArea := dataToParse[5:7]
+	// if startCellContentArea[0] != 0 {
+	// 	fmt.Println("start cell content area")
+	// 	fmt.Println(startCellContentArea)
+	// 	panic("implement startCellContentArea more than 0")
+	// }
+	startCellContentAreaInt := binary.BigEndian.Uint16(startCellContentArea)
+	startCellContentAreaBigEndian := binary.BigEndian.Uint16(startCellContentArea)
+	fragmenetedArea := dataToParse[7]
+	var rightMostPointer []byte
+	if isPointerValue {
+		rightMostPointer = dataToParse[8:12]
+		dataToParse = dataToParse[12:]
+	} else {
+		dataToParse = dataToParse[8:]
+	}
+
+	var pointers [][]byte
+
+	for {
+		pointer := dataToParse[:2]
+		if pointer[0] == 0 && pointer[1] == 0 {
+			break
+		}
+		dataToParse = dataToParse[2:]
+		pointers = append(pointers, pointer)
+	}
+
+	if len(data) < int(startCellContentAreaBigEndian) {
+		panic("data length is lesser than start of cell content area")
+	}
+
+	cellAreaContent := data[startCellContentAreaBigEndian:]
+	var latestRowLengthArr []byte
+	for i := 0; i < 9; i++ {
+		latestRowLengthArr = append(latestRowLengthArr, cellAreaContent[i])
+		if cellAreaContent[i] < 127 {
+			break
+		}
+	}
+	if len(latestRowLengthArr) > 1 {
+		panic("Need to be handled later")
+	}
+
+	latestRowLength := int(latestRowLengthArr[0]) + 2 // 1 bytes for length, 1 bytes for row id
+	if len(cellAreaContent) < int(latestRowLength) {
+		fmt.Println("row length")
+		fmt.Println(int(latestRowLength))
+		fmt.Println("area length")
+		fmt.Println(len(cellAreaContent))
+		fmt.Println(cellAreaContent)
+		panic("cellAreaContent length is lesser than start of cell content area, row length%")
+	}
+	latestRow := cellAreaContent[:latestRowLength]
+	latestRowId := latestRow[1]
+
+	fmt.Println("read what we have parsed")
+	fmt.Printf("Header: Btree type: %v, freeBlocks: %v, number of cells: %v, fragmentedArea: %v, rightMostPOinter: %v \n", btreeType, freebBlocks, numberofCells, fragmenetedArea, rightMostPointer)
+	fmt.Printf("pointer %v \n", pointers)
+	fmt.Printf("Cell Area, latest Row length: %v, row: %v \n", latestRow, latestRow)
+	fmt.Printf("latest row id: %v \n", latestRowId)
+	fmt.Printf("Cell all: %v", cellAreaContent)
+
+	return LastPageParsed{
+		btreeType:            int(btreeType),
+		numberofCells:        numberofCellsInt,
+		startCellContentArea: int(startCellContentAreaInt),
+		rightMostpointer:     rightMostPointer,
+		cellArea:             cellAreaContent,
+		framgenetedArea:      int(fragmenetedArea),
+		freeBlock:            int(freeBlocksInt),
+		pointers:             pointers,
+		latesRow: LastPageParseLatestRow{
+			rowId: int(latestRowId),
+			data:  latestRow,
+		},
+	}
+}
+
 func main() {
-	fmt.Println("Let's start with db")
-	// tableSqlpart1 := "tableuseruser"
-	// tableSqlpart2Id := 2
-	// tableSqlpart3 := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
+	data := readDbPage(0)
+
+	parsedData := parseReadPage(data, true)
 
 	header := header()
 
@@ -673,35 +831,47 @@ func main() {
 
 	userData = append(userData, userData1)
 
-	rowLengthAdded := []int{}
 	rowDataAdded := []byte{}
 	numberOfRowAdded := 0
+	rowPointers := []byte{}
+	rowsAddedLength := 0
 
-	for _, v := range userData {
-		rowLength, row := createACell(v.input, v.queryData, []byte{})
-		rowLengthAdded = append(rowLengthAdded, rowLength)
-		rowDataAdded = append(rowDataAdded, row...)
-		numberOfRowAdded++
+	for _, v := range parsedData.pointers {
+
+		rowPointers = append(rowPointers, v...)
 	}
 
-	btreeHeaderSchema := BtreeHeaderSchema(rowLengthAdded, numberOfRowAdded)
+	var lastPointer int
 
-	// btreeHeaderValue := BtreeHeaderValue()
-	// value := appendValues()
-	// // btreeHeaderValue1 := interiorBtreeHeaderValue()
-	// // value2 := interiroBtreeValues()
+	if len(rowPointers) == 0 {
+		lastPointer = PageSize
+	} else {
+		lastPointer = int(binary.BigEndian.Uint16(parsedData.pointers[len(parsedData.pointers)-1]))
+	}
 
-	// leafHeader := leafIndexBtreeHeaderValue()
-	// leafValue := leafIndexBtreeValues()
+	for _, v := range userData {
+		rowContentLength, row := createACell(v.input, v.queryData, parsedData.latesRow)
+		rowDataAdded = append(rowDataAdded, row...)
+		numberOfRowAdded++
+		rowLength := rowContentLength + 2 // 1 bytes for row length, 1 byte for rowid
+		rowsAddedLength += rowLength
+
+		newPointer := lastPointer - rowLength
+		rowPointers = append(rowPointers, uint16toByte(uint16(newPointer))...)
+	}
+	allRows := rowDataAdded
+	allRows = append(allRows, parsedData.cellArea...)
+
+	btreeHeaderSchema := BtreeHeaderSchema(rowPointers, numberOfRowAdded, rowsAddedLength, parsedData)
+
+	zerosLength := PageSize - len(header) - len(btreeHeaderSchema) - len(allRows)
+
+	zeros := make([]byte, zerosLength)
+
 	allData := header
 	allData = append(allData, btreeHeaderSchema...)
-	allData = append(allData, rowDataAdded...)
-	// allData = append(allData, btreeHeaderValue1...)
-	// allData = append(allData, value2...)
-	// allData = append(allData, leafHeader...)
-	// allData = append(allData, leafValue...)
-	// allData = append(allData, btreeHeaderValue...)
-	// allData = append(allData, value...)
+	allData = append(allData, zeros...)
+	allData = append(allData, allRows...)
 	writeToFile(allData)
 
 }
