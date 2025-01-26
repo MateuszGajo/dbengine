@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 )
 
 // Database Header Format
@@ -548,12 +549,52 @@ func calculateTextLength(value string) []byte {
 	}
 }
 
-func createACell(userval string, queryParts []string, latestRow LastPageParseLatestRow) (int, []byte) {
-	// TODO: Should be read from previous row
-	var internalIndexForSchema = 1
+func createCell(latestRow LastPageParseLatestRow, values ...interface{}) (int, []byte) {
+	var columnValues []byte = []byte{}
+	var columnLength []byte = []byte{}
 	var schemaRowId = latestRow.rowId
 
 	schemaRowId++
+
+	for _, v := range values {
+		switch v.(type) {
+		case int:
+			value := v.(int)
+			if value > 255 {
+				panic("need to handle this type laters")
+			}
+			columnValues = append(columnValues, byte(uint16(value)))
+			columnLength = append(columnLength, byte(1))
+		case string:
+			value := v.(string)
+			columnValues = append(columnValues, []byte(value)...)
+			columnLength = append(columnLength, calculateTextLength(value)...)
+		default:
+			panic("unssporrted cell type")
+		}
+	}
+
+	headerLength := len(columnLength) + 1 // 5 column + 1 for current byte
+	rowId := schemaRowId                  // first row 2 byes
+
+	row := []byte{byte(rowId)}
+	row = append(row, byte(headerLength))
+	row = append(row, columnLength...)
+	row = append(row, columnValues...)
+
+	rowLength := len(row) - 1 // we don't count row id i guess
+
+	result := []byte{byte(rowLength)}
+	result = append(result, row...)
+
+	return rowLength, result
+
+}
+
+func createSchemaCell(userval string, queryParts []string, latestRow LastPageParseLatestRow) (int, []byte) {
+	// TODO: Should be read from previous row
+	var internalIndexForSchema = 1
+
 	internalIndexForSchema++
 
 	if len(queryParts) < 3 {
@@ -570,35 +611,8 @@ func createACell(userval string, queryParts []string, latestRow LastPageParseLat
 	columnFourValue := internalIndexForSchema
 	columnFifthValue := userval
 
-	columnOneLength := calculateTextLength(columnOneValue)
-	columnTwoLength := calculateTextLength(columnTwoValue)
-	columnThreeLength := calculateTextLength(columnThreeValue)
-	columnFourLength := 1 // Value is an 8-bit twos-complement integer.
-	columnFifthLength := calculateTextLength(columnFifthValue)
+	return createCell(latestRow, columnOneValue, columnTwoValue, columnThreeValue, columnFourValue, columnFifthValue)
 
-	headerLength := 5 + 1 // 5 column + 1 for current byte
-	rowId := schemaRowId  // first row 2 byes
-	// valueLen := len(value)
-
-	row := []byte{byte(rowId)}
-	row = append(row, byte(headerLength))
-	row = append(row, columnOneLength...)
-	row = append(row, columnTwoLength...)
-	row = append(row, columnThreeLength...)
-	row = append(row, byte(columnFourLength))
-	row = append(row, columnFifthLength...)
-	row = append(row, []byte(columnOneValue)...)
-	row = append(row, []byte(columnTwoValue)...)
-	row = append(row, []byte(columnThreeValue)...)
-	row = append(row, byte(uint8(columnFourValue)))
-	row = append(row, []byte(columnFifthValue)...)
-
-	rowLength := len(row) - 1 // we don't count row id i guess
-
-	result := []byte{byte(rowLength)}
-	result = append(result, row...)
-
-	return rowLength, result
 }
 
 func uint16toByte(val uint16) []byte {
@@ -617,11 +631,6 @@ func BtreeHeaderSchema(rowPointerAdded []byte, rowAdded int, rowsAddedLength int
 	currentNumberOfCell += rowAdded
 
 	currentCellStart -= rowsAddedLength
-
-	// currentNumberOfCell += rowAdded
-	// for _, v := range rowLengthAdded {
-	// 	currentCellStart -= v
-	// }
 
 	bTreePageType := intToBinary(int(TableBtreeLeafCell), 1)
 	firstFreeBlockOnPage := intToBinary(0, 2)
@@ -643,11 +652,6 @@ func BtreeHeaderSchema(rowPointerAdded []byte, rowAdded int, rowsAddedLength int
 
 func parseQuery(input string) {
 
-}
-
-type UserData struct {
-	input     string
-	queryData []string
 }
 
 func readDbPage(pageNumber int) []byte {
@@ -680,9 +684,16 @@ func readDbPage(pageNumber int) []byte {
 	return buff[:n] // Return the bytes actually read
 }
 
+type PageParseColumn struct {
+	columnType   string
+	columnLength int
+	columnValue  []byte
+}
+
 type LastPageParseLatestRow struct {
-	rowId int
-	data  []byte
+	rowId   int
+	data    []byte
+	columns []PageParseColumn
 }
 
 type LastPageParsed struct {
@@ -706,8 +717,9 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 			cellArea:             []byte{},
 			pointers:             [][]byte{},
 			latesRow: LastPageParseLatestRow{
-				rowId: 0,
-				data:  []byte{},
+				rowId:   0,
+				data:    []byte{},
+				columns: []PageParseColumn{},
 			},
 		}
 	}
@@ -782,16 +794,53 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 
 	latestRowLength := int(latestRowLengthArr[0]) + 2 // 1 bytes for length, 1 bytes for row id
 	if len(cellAreaContent) < int(latestRowLength) {
-		fmt.Println("row length")
-		fmt.Println(int(latestRowLength))
-		fmt.Println("area length")
-		fmt.Println(len(cellAreaContent))
-		fmt.Println(cellAreaContent)
 		panic("cellAreaContent length is lesser than start of cell content area, row length%")
 	}
 	latestRow := cellAreaContent[:latestRowLength]
 	latestRowId := latestRow[1]
+	latestRowheaderLength := latestRow[2]
+	latestRowHeaders := latestRow[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
+	latestRowValues := latestRow[3-1+int(latestRowheaderLength):]
+	var latestRowColumns []PageParseColumn
+	for _, v := range latestRowHeaders {
+		if int(v) > 127 {
+			panic("handle case that we have multiple bytes")
+		}
+		if int(v) < 10 {
+			//int
+			column := PageParseColumn{
+				columnType:   string(strconv.Itoa(int(v))),
+				columnLength: 1,
+				columnValue:  []byte{latestRowValues[0]},
+			}
+			latestRowColumns = append(latestRowColumns, column)
+			latestRowValues = latestRowValues[1:]
+			continue
+		}
+		if int(v) >= 10 && int(v) < 12 {
+			panic("reserved values, shouldnt be used")
+		}
+		if int(v)%2 == 0 {
+			//blob
+			panic("implement hadnling blobs")
 
+		} else {
+
+			//string
+			length := (int(v) - 13) / 2
+			value := latestRowValues[:length]
+			column := PageParseColumn{
+				columnType:   "13",
+				columnLength: length,
+				columnValue:  value,
+			}
+			latestRowColumns = append(latestRowColumns, column)
+			latestRowValues = latestRowValues[length:]
+			continue
+		}
+		panic("should never enter this state in parsing")
+
+	}
 	fmt.Println("read what we have parsed")
 	fmt.Printf("Header: Btree type: %v, freeBlocks: %v, number of cells: %v, fragmentedArea: %v, rightMostPOinter: %v \n", btreeType, freebBlocks, numberofCells, fragmenetedArea, rightMostPointer)
 	fmt.Printf("pointer %v \n", pointers)
@@ -809,69 +858,24 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 		freeBlock:            int(freeBlocksInt),
 		pointers:             pointers,
 		latesRow: LastPageParseLatestRow{
-			rowId: int(latestRowId),
-			data:  latestRow,
+			rowId:   int(latestRowId),
+			data:    latestRow,
+			columns: latestRowColumns,
 		},
 	}
 }
 
 func main() {
-	data := readDbPage(0)
 
+	// "insert into user(name) values('alice')"
+	// "select name from user where name='432423'"
+	data := readDbPage(0)
 	parsedData := parseReadPage(data, true)
 
-	header := header()
+	fmt.Printf("%+v", parsedData)
 
-	var userData []UserData
+	// page := createSchema(true, parsedData, userData)
 
-	var userData1 = UserData{
-		input:     "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)",
-		queryData: []string{"create", "table", "user"},
-	}
-
-	userData = append(userData, userData1)
-
-	rowDataAdded := []byte{}
-	numberOfRowAdded := 0
-	rowPointers := []byte{}
-	rowsAddedLength := 0
-
-	for _, v := range parsedData.pointers {
-
-		rowPointers = append(rowPointers, v...)
-	}
-
-	var lastPointer int
-
-	if len(rowPointers) == 0 {
-		lastPointer = PageSize
-	} else {
-		lastPointer = int(binary.BigEndian.Uint16(parsedData.pointers[len(parsedData.pointers)-1]))
-	}
-
-	for _, v := range userData {
-		rowContentLength, row := createACell(v.input, v.queryData, parsedData.latesRow)
-		rowDataAdded = append(rowDataAdded, row...)
-		numberOfRowAdded++
-		rowLength := rowContentLength + 2 // 1 bytes for row length, 1 byte for rowid
-		rowsAddedLength += rowLength
-
-		newPointer := lastPointer - rowLength
-		rowPointers = append(rowPointers, uint16toByte(uint16(newPointer))...)
-	}
-	allRows := rowDataAdded
-	allRows = append(allRows, parsedData.cellArea...)
-
-	btreeHeaderSchema := BtreeHeaderSchema(rowPointers, numberOfRowAdded, rowsAddedLength, parsedData)
-
-	zerosLength := PageSize - len(header) - len(btreeHeaderSchema) - len(allRows)
-
-	zeros := make([]byte, zerosLength)
-
-	allData := header
-	allData = append(allData, btreeHeaderSchema...)
-	allData = append(allData, zeros...)
-	allData = append(allData, allRows...)
-	writeToFile(allData)
+	// writeToFile(page)
 
 }
