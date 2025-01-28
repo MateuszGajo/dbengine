@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Database Header Format
@@ -492,7 +493,8 @@ func header() []byte {
 	// An index is added or removed.
 	// Other schema-altering operations occur.
 	// we added one table
-	versionValidForNumber := intToBinary(2, 4)
+	// TODO: this need to be updated????
+	versionValidForNumber := intToBinary(1, 4)
 	// end of 0000005
 	versionNumber := intToBinary(3045001, 4)
 
@@ -549,108 +551,54 @@ func calculateTextLength(value string) []byte {
 	}
 }
 
-func createCell(latestRow LastPageParseLatestRow, values ...interface{}) (int, []byte) {
-	var columnValues []byte = []byte{}
-	var columnLength []byte = []byte{}
-	var schemaRowId = latestRow.rowId
+func createCell(btreeType BtreeType, latestRow LastPageParseLatestRow, values ...interface{}) CreateCell {
+	if btreeType == TableBtreeLeafCell {
+		var columnValues []byte = []byte{}
+		var columnLength []byte = []byte{}
+		var schemaRowId = latestRow.rowId
 
-	schemaRowId++
+		schemaRowId++
 
-	for _, v := range values {
-		switch v.(type) {
-		case int:
-			value := v.(int)
-			if value > 255 {
-				panic("need to handle this type laters")
+		for _, v := range values {
+			switch v.(type) {
+			case int:
+				value := v.(int)
+				if value > 255 {
+					panic("need to handle this type laters")
+				}
+				columnValues = append(columnValues, byte(uint16(value)))
+				columnLength = append(columnLength, byte(1))
+			case string:
+				value := v.(string)
+				columnValues = append(columnValues, []byte(value)...)
+				columnLength = append(columnLength, calculateTextLength(value)...)
+			default:
+				fmt.Println("hello what do we got here")
+				fmt.Println(values)
+				panic("unssporrted cell type")
 			}
-			columnValues = append(columnValues, byte(uint16(value)))
-			columnLength = append(columnLength, byte(1))
-		case string:
-			value := v.(string)
-			columnValues = append(columnValues, []byte(value)...)
-			columnLength = append(columnLength, calculateTextLength(value)...)
-		default:
-			panic("unssporrted cell type")
+		}
+
+		headerLength := len(columnLength) + 1 // 5 column + 1 for current byte
+		rowId := schemaRowId                  // first row 2 byes
+
+		row := []byte{byte(rowId)}
+		row = append(row, byte(headerLength))
+		row = append(row, columnLength...)
+		row = append(row, columnValues...)
+
+		rowLength := len(row) - 1 // we don't count row id i guess
+
+		result := []byte{byte(rowLength)}
+		result = append(result, row...)
+
+		return CreateCell{
+			length: rowLength,
+			data:   result,
 		}
 	}
 
-	headerLength := len(columnLength) + 1 // 5 column + 1 for current byte
-	rowId := schemaRowId                  // first row 2 byes
-
-	row := []byte{byte(rowId)}
-	row = append(row, byte(headerLength))
-	row = append(row, columnLength...)
-	row = append(row, columnValues...)
-
-	rowLength := len(row) - 1 // we don't count row id i guess
-
-	result := []byte{byte(rowLength)}
-	result = append(result, row...)
-
-	return rowLength, result
-
-}
-
-func createSchemaCell(userval string, queryParts []string, latestRow LastPageParseLatestRow) (int, []byte) {
-	// TODO: Should be read from previous row
-	var internalIndexForSchema = 1
-
-	internalIndexForSchema++
-
-	if len(queryParts) < 3 {
-		panic("query parts less than 3")
-	}
-
-	if len(queryParts) < 4 {
-		queryParts = append(queryParts, queryParts[2])
-	}
-
-	columnOneValue := queryParts[1]
-	columnTwoValue := queryParts[2]
-	columnThreeValue := queryParts[3]
-	columnFourValue := internalIndexForSchema
-	columnFifthValue := userval
-
-	return createCell(latestRow, columnOneValue, columnTwoValue, columnThreeValue, columnFourValue, columnFifthValue)
-
-}
-
-func uint16toByte(val uint16) []byte {
-	result := make([]byte, 2)
-
-	binary.BigEndian.PutUint16(result, val)
-
-	return result
-}
-
-func BtreeHeaderSchema(rowPointerAdded []byte, rowAdded int, rowsAddedLength int, parsedData LastPageParsed) []byte {
-	//This should be read from the page
-	var currentNumberOfCell = parsedData.numberofCells
-	var currentCellStart = parsedData.startCellContentArea
-
-	currentNumberOfCell += rowAdded
-
-	currentCellStart -= rowsAddedLength
-
-	bTreePageType := intToBinary(int(TableBtreeLeafCell), 1)
-	firstFreeBlockOnPage := intToBinary(0, 2)
-	numberOfCells := intToBinary(currentNumberOfCell, 2)
-
-	startCellContentArea := intToBinary(currentCellStart, 2)
-	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
-
-	data := []byte{}
-	data = append(data, bTreePageType...)
-	data = append(data, firstFreeBlockOnPage...)
-	data = append(data, numberOfCells...)
-	data = append(data, startCellContentArea...)
-	data = append(data, framgentedFreeBytesWithingCellContentArea...)
-	data = append(data, rowPointerAdded...)
-
-	return data
-}
-
-func parseQuery(input string) {
+	panic("not handle create cell")
 
 }
 
@@ -697,25 +645,31 @@ type LastPageParseLatestRow struct {
 }
 
 type LastPageParsed struct {
+	dbHeader             []byte // only for first page
 	btreeType            int
 	freeBlock            int
 	numberofCells        int
 	startCellContentArea int
 	framgenetedArea      int
 	rightMostpointer     []byte
-	pointers             [][]byte
+	pointers             []byte
 	cellArea             []byte
 	latesRow             LastPageParseLatestRow
 }
 
 func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 	if len(data) == 0 {
+		dbHeader := []byte{}
+		if isFirstPage {
+			dbHeader = header()
+		}
 		return LastPageParsed{
 			// btreeType:            int(TableBtreeLeafCell),
+			dbHeader:             dbHeader,
 			numberofCells:        0,
 			startCellContentArea: PageSize,
 			cellArea:             []byte{},
-			pointers:             [][]byte{},
+			pointers:             []byte{},
 			latesRow: LastPageParseLatestRow{
 				rowId:   0,
 				data:    []byte{},
@@ -724,9 +678,11 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 		}
 	}
 	dataToParse := data
+	dbHeader := []byte{}
 	if isFirstPage {
 		//Skip header for now
 		dataToParse = dataToParse[100:]
+		dbHeader = dataToParse[:100]
 	}
 
 	btreeType := dataToParse[0]
@@ -754,6 +710,7 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 	// 	fmt.Println(startCellContentArea)
 	// 	panic("implement startCellContentArea more than 0")
 	// }
+	fmt.Println("parsing failed???")
 	startCellContentAreaInt := binary.BigEndian.Uint16(startCellContentArea)
 	startCellContentAreaBigEndian := binary.BigEndian.Uint16(startCellContentArea)
 	fragmenetedArea := dataToParse[7]
@@ -765,7 +722,7 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 		dataToParse = dataToParse[8:]
 	}
 
-	var pointers [][]byte
+	var pointers []byte
 
 	for {
 		pointer := dataToParse[:2]
@@ -773,7 +730,7 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 			break
 		}
 		dataToParse = dataToParse[2:]
-		pointers = append(pointers, pointer)
+		pointers = append(pointers, pointer...)
 	}
 
 	if len(data) < int(startCellContentAreaBigEndian) {
@@ -849,6 +806,7 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 	fmt.Printf("Cell all: %v", cellAreaContent)
 
 	return LastPageParsed{
+		dbHeader:             dbHeader,
 		btreeType:            int(btreeType),
 		numberofCells:        numberofCellsInt,
 		startCellContentArea: int(startCellContentAreaInt),
@@ -865,17 +823,322 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 	}
 }
 
+// func createSchema(firstPage bool, parsedData LastPageParsed, userData []UserData) []byte {
+// 	extraData := []byte{}
+
+// 	if firstPage {
+// 		extraData = header()
+
+// 	}
+
+// 	rowDataAdded := []byte{}
+// 	numberOfRowAdded := 0
+// 	rowPointers := []byte{}
+// 	rowsAddedLength := 0
+
+// 	for _, v := range parsedData.pointers {
+
+// 		rowPointers = append(rowPointers, v...)
+// 	}
+
+// 	var lastPointer int
+
+// 	if len(rowPointers) == 0 {
+// 		lastPointer = PageSize
+// 	} else {
+// 		lastPointer = int(binary.BigEndian.Uint16(parsedData.pointers[len(parsedData.pointers)-2 : len(parsedData.pointers)-1]))
+// 	}
+
+// 	// for _, v := range userData {
+// 	// 	cell := createSchemaCell(v.input, v.queryData, parsedData.latesRow)
+// 	// 	rowDataAdded = append(rowDataAdded, row...)
+// 	// 	numberOfRowAdded++
+// 	// 	rowLength := rowContentLength + 2 // 1 bytes for row length, 1 byte for rowid
+// 	// 	rowsAddedLength += rowLength
+
+// 	// 	newPointer := lastPointer - rowLength
+// 	// 	rowPointers = append(rowPointers, uint16toByte(uint16(newPointer))...)
+// 	// }
+// 	allRows := rowDataAdded
+// 	allRows = append(allRows, parsedData.cellArea...)
+
+// 	btreeHeaderSchema := BtreeHeaderSchema(rowPointers, numberOfRowAdded, rowsAddedLength, parsedData)
+
+// 	zerosLength := PageSize - len(extraData) - len(btreeHeaderSchema) - len(allRows)
+
+// 	zeros := make([]byte, zerosLength)
+
+// 	allData := extraData
+// 	allData = append(allData, btreeHeaderSchema...)
+// 	allData = append(allData, zeros...)
+// 	allData = append(allData, allRows...)
+
+// 	return allData
+// }
+
+type SQLQueryActionType string
+
+const (
+	SqlQueryCreateActionType SQLQueryActionType = "create"
+	SqlQueryInsertActionType SQLQueryActionType = "insert"
+
+	//TODO: fill them
+)
+
+var validQueryActionTypes = map[SQLQueryActionType]struct{}{
+	SqlQueryCreateActionType: {},
+	SqlQueryInsertActionType: {},
+}
+
+type SQLQueryObjectType string
+
+const (
+	SqlQueryDatabaseObjectType SQLQueryObjectType = "database"
+	SqlQueryTableObjectType    SQLQueryObjectType = "table"
+	SqlQueryIndexObjectType    SQLQueryObjectType = "index"
+	//TODO fill them
+)
+
+var validQueryObjectTypes = map[SQLQueryObjectType]struct{}{
+	SqlQueryDatabaseObjectType: {},
+	SqlQueryTableObjectType:    {},
+	SqlQueryIndexObjectType:    {},
+}
+
+type SQLQueryColumn struct {
+	columnName string
+	columnType string
+	constrains []string
+}
+
+type UserData struct {
+	input     string
+	queryData []string
+	sqlType   SQLQueryActionType
+}
+
+type CreateActionQueryData struct {
+	// input      string
+	action     SQLQueryActionType
+	objectType SQLQueryObjectType
+	entityName string
+	columns    []SQLQueryColumn
+	rawQuery   string
+	// queryData  []string
+}
+
+// for _, v := range userData {
+// 	rowContentLength, row := createSchemaCell(v.input, v.queryData, parsedData.latesRow)
+// 	rowDataAdded = append(rowDataAdded, row...)
+// 	numberOfRowAdded++
+// 	rowLength := rowContentLength + 2 // 1 bytes for row length, 1 byte for rowid
+// 	rowsAddedLength += rowLength
+
+// 	newPointer := lastPointer - rowLength
+// 	rowPointers = append(rowPointers, uint16toByte(uint16(newPointer))...)
+// }
+
+type CreateCell struct {
+	length int
+	data   []byte
+}
+
+func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData LastPageParsed) []byte {
+	//This should be read from the page
+	currentNumberOfCell := parsedData.numberofCells
+	currentCellStart := parsedData.startCellContentArea
+	pointers := parsedData.pointers
+
+	var lastPointer int = PageSize
+
+	if len(pointers) > 0 {
+		lastPointer = int(binary.BigEndian.Uint16(parsedData.pointers[len(parsedData.pointers)-2 : len(parsedData.pointers)]))
+	}
+
+	if cell.length > 0 {
+		currentNumberOfCell += 1
+		newCellStartPosition := lastPointer - cell.length - 2
+		currentCellStart = newCellStartPosition
+		pointers = append(pointers, intToBinary(newCellStartPosition, 2)...) // -2 is for row id and for length byte
+	}
+
+	bTreePageType := intToBinary(int(TableBtreeLeafCell), 1)
+	firstFreeBlockOnPage := intToBinary(0, 2)
+	numberOfCells := intToBinary(currentNumberOfCell, 2)
+
+	startCellContentArea := intToBinary(currentCellStart, 2)
+	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
+
+	data := []byte{}
+	data = append(data, bTreePageType...)
+	data = append(data, firstFreeBlockOnPage...)
+	data = append(data, numberOfCells...)
+	data = append(data, startCellContentArea...)
+	data = append(data, framgentedFreeBytesWithingCellContentArea...)
+	data = append(data, pointers...)
+
+	return data
+}
+
+func parseCreateTableQuery(input string) CreateActionQueryData {
+
+	res := CreateActionQueryData{}
+
+	data := []string{}
+	start := 0
+	for i := 0; i < len(input); i++ {
+		if input[i] == 32 {
+			data = append(data, input[start:i])
+			start = i + 1
+		}
+
+		if input[i] == '(' {
+			start = i + 1
+			break
+		}
+	}
+
+	// WRite parsing (columns, eg id integer primary key, name text)
+
+	if len(data) < 3 {
+		panic("invalid sql, create table [name], should have 3 words separated by space")
+	}
+
+	if _, ok := validQueryActionTypes[SQLQueryActionType(strings.ToLower(data[0]))]; !ok {
+		panic("invalid action type")
+	}
+	res.action = SQLQueryActionType(strings.ToLower(data[0]))
+
+	if _, ok := validQueryObjectTypes[SQLQueryObjectType(strings.ToLower(data[1]))]; !ok {
+		panic("invalid action type")
+	}
+	res.objectType = SQLQueryObjectType(strings.ToLower(data[1]))
+	res.entityName = data[3]
+
+	return CreateActionQueryData{}
+}
+
+func handleCreateTableSqlQuery(parsedData LastPageParsed, input string) []byte {
+	// parse query lets assume output bellow
+
+	//``````````````````````````````````````````````````````````````````````````````````````````````````````````````
+	//TODO: PARSER
+	//TODO: PARSER
+	//TODO: PARSER
+	//TODO: PARSER
+	//TODO: PARSER
+	//TODO: PARSER
+	//````````````````````````````````````````````````````````````````````````````````````````````````````````````
+
+	// createSqlQueryData = parseCreateTableQuery(input)
+	createSqlQueryData := CreateActionQueryData{
+		rawQuery:   "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)",
+		action:     SqlQueryCreateActionType,
+		objectType: SqlQueryTableObjectType,
+		entityName: "user",
+		columns: []SQLQueryColumn{
+			{columnName: "id", columnType: "integer", constrains: []string{"primary key"}},
+			{columnName: "name", columnType: "integer", constrains: []string{}},
+		},
+	}
+	// rowContentLength, row := createSchemaCell(v.input, v.queryData, parsedData.latesRow)
+
+	internalIndexForSchema := 2
+	//first read schema, starting from page 1, we will deal with multipage then
+	if len(parsedData.latesRow.columns) > 3 {
+		if parsedData.latesRow.columns[3].columnType != "1" {
+			panic("We are expecting this to be internal index schema")
+		}
+		internalIndexForSchema := int(parsedData.latesRow.columns[3].columnValue[0])
+		internalIndexForSchema++
+	}
+
+	// Create a cell pass cell that are already there(latest pointer etc), get created cell's length + pointers, i think length is undded, pointer is all we care about, we only need all bytes, currnet cell + new one, + header, there rest should be zeros, for starting cell value we have latest pointers, and pointers array is already there
+	// Modify headers fields after cell has been added
+	// ADD cell, defined how many cell we are added and how many values in eachg cell (length will be calculate internally)
+	cell := createCell(TableBtreeLeafCell, parsedData.latesRow, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, internalIndexForSchema, createSqlQueryData.rawQuery)
+	allCells := cell.data
+	allCells = append(allCells, parsedData.cellArea...)
+	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
+	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, parsedData)
+	// Zeros data
+	zerosLength := PageSize - len(parsedData.dbHeader) - len(btreeHeader) - len(allCells)
+	zerosSpace := make([]byte, zerosLength)
+	//General method to save the daata to disk i guess
+	dataToSave := parsedData.dbHeader
+	dataToSave = append(dataToSave, btreeHeader...)
+	dataToSave = append(dataToSave, zerosSpace...)
+	dataToSave = append(dataToSave, allCells...)
+
+	return dataToSave
+}
+
+func handleCreaqteSqlQuery(parsedData LastPageParsed, objType SQLQueryObjectType, input string) []byte {
+	switch objType {
+	case SqlQueryTableObjectType:
+		return handleCreateTableSqlQuery(parsedData, input)
+	default:
+		panic("implement this")
+	}
+}
+
+func handleActionType(sqlQueryType SQLQueryActionType, sqlObjectType SQLQueryObjectType, input string, parsedData LastPageParsed) []byte {
+	switch sqlQueryType {
+	case SqlQueryCreateActionType:
+
+		return handleCreaqteSqlQuery(parsedData, sqlObjectType, input)
+	case SqlQueryInsertActionType:
+		panic("Unsported sql query type")
+	default:
+		panic("Unsported sql query type")
+	}
+}
+
+func parseStartQuery(input string) []string {
+	res := []string{}
+	start := 0
+	for i := 0; i < len(input); i++ {
+		if input[i] == 32 {
+			res = append(res, input[start:i])
+			start = i + 1
+		}
+
+		if len(res) == 2 {
+			break
+		}
+	}
+
+	if len(res) < 2 {
+		panic("query should have at lest 2 items")
+	}
+
+	return res
+}
+
 func main() {
 
-	// "insert into user(name) values('alice')"
-	// "select name from user where name='432423'"
+	input := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
+	res := parseStartQuery(input)
+
+	// We always need to rage page 0
 	data := readDbPage(0)
 	parsedData := parseReadPage(data, true)
+
+	page := handleActionType(SQLQueryActionType(strings.ToLower(res[0])), SQLQueryObjectType(strings.ToLower(res[1])), input, parsedData)
 
 	fmt.Printf("%+v", parsedData)
 
 	// page := createSchema(true, parsedData, userData)
 
-	// writeToFile(page)
+	writeToFile(page)
+
+	allData := page
+
+	page2 := []byte{0x0d, 0, 0, 0, 0, 0x10}
+	zeros := make([]byte, PageSize-len(page2))
+	allData = append(allData, page2...)
+	allData = append(allData, zeros...)
+
+	writeToFile(allData)
 
 }
