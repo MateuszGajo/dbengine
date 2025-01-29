@@ -905,7 +905,7 @@ var validQueryObjectTypes = map[SQLQueryObjectType]struct{}{
 	SqlQueryIndexObjectType:    {},
 }
 
-type SQLQueryColumn struct {
+type SQLQueryColumnConstrains struct {
 	columnName string
 	columnType string
 	constrains []string
@@ -915,16 +915,6 @@ type UserData struct {
 	input     string
 	queryData []string
 	sqlType   SQLQueryActionType
-}
-
-type CreateActionQueryData struct {
-	// input      string
-	action     SQLQueryActionType
-	objectType SQLQueryObjectType
-	entityName string
-	columns    []SQLQueryColumn
-	rawQuery   string
-	// queryData  []string
 }
 
 // for _, v := range userData {
@@ -980,12 +970,61 @@ func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData LastPage
 	return data
 }
 
+type SQLQueryColumnAttribute string
+
+const (
+	SQLQueryColumnAttributePrimaryKey SQLQueryColumnAttribute = "PRIMARY KEY"
+	SQLQueryColumnAttributeForeignKey SQLQueryColumnAttribute = "FOREIGN KEY"
+	SQLQueryColumnAttributeUniuq      SQLQueryColumnAttribute = "UNIQUE"
+	SQLQueryColumnAttributeNotNull    SQLQueryColumnAttribute = "NOT NULL"
+	SQLQueryColumnAttributeIndex      SQLQueryColumnAttribute = "INDEX"
+	// TODO: fill it
+)
+
+var sqlQueryAllowedColumnAttributes = map[SQLQueryColumnAttribute]struct{}{
+	SQLQueryColumnAttributeForeignKey: {},
+	SQLQueryColumnAttributePrimaryKey: {},
+	SQLQueryColumnAttributeUniuq:      {},
+	SQLQueryColumnAttributeNotNull:    {},
+	SQLQueryColumnAttributeIndex:      {},
+	// TODO: fill it after const
+}
+
+type SQLQueryColumnType string
+
+const (
+	SQLQueryColumnTypeInteger SQLQueryColumnType = "INTEGER"
+	SQLQueryColumnTypeText    SQLQueryColumnType = "TEXT"
+	// TODO: fill it
+)
+
+var sqlQueryAllowedColumnType = map[SQLQueryColumnType]struct{}{
+	SQLQueryColumnTypeInteger: {},
+	SQLQueryColumnTypeText:    {},
+}
+
+type CreateActionQueryData struct {
+	// input      string
+	action     SQLQueryActionType
+	objectType SQLQueryObjectType
+	entityName string
+	columns    []SQLQueryColumnConstrains
+	rawQuery   string
+	// queryData  []string
+}
+
 func parseCreateTableQuery(input string) CreateActionQueryData {
 
-	res := CreateActionQueryData{}
+	res := CreateActionQueryData{
+		rawQuery: input,
+	}
 
 	data := []string{}
 	start := 0
+	input = strings.TrimSpace(input)
+	if input[len(input)-1] != ')' {
+		panic("invalid query")
+	}
 	for i := 0; i < len(input); i++ {
 		if input[i] == 32 {
 			data = append(data, input[start:i])
@@ -1004,18 +1043,96 @@ func parseCreateTableQuery(input string) CreateActionQueryData {
 		panic("invalid sql, create table [name], should have 3 words separated by space")
 	}
 
+	fmt.Println("11111")
+
 	if _, ok := validQueryActionTypes[SQLQueryActionType(strings.ToLower(data[0]))]; !ok {
 		panic("invalid action type")
 	}
 	res.action = SQLQueryActionType(strings.ToLower(data[0]))
-
+	fmt.Println("2222")
 	if _, ok := validQueryObjectTypes[SQLQueryObjectType(strings.ToLower(data[1]))]; !ok {
 		panic("invalid action type")
 	}
 	res.objectType = SQLQueryObjectType(strings.ToLower(data[1]))
-	res.entityName = data[3]
+	res.entityName = data[2]
 
-	return CreateActionQueryData{}
+	// ()
+	// 0 - name, 1-type, 2+-attributes
+
+	// last one is ()
+	// id INTEGER PRIMARY KEY, name TEXT
+	columnConstrains := []SQLQueryColumnConstrains{}
+	for i := start; i < len(input)-1; i++ {
+		if input[i] == ',' {
+			data := input[start:i]
+			start = i + 1
+			columnConstrains = append(columnConstrains, parseSqlQueryColumnAttributes(data))
+
+		}
+
+	}
+
+	// res.columns = columnConstrains
+
+	return res
+}
+
+func parseSqlQueryColumnAttributes(input string) SQLQueryColumnConstrains {
+	columnConstrain := SQLQueryColumnConstrains{}
+	// PRIMARY KEY
+	input = strings.TrimSpace(input)
+	index := 0
+	fmt.Println("we are going infinite")
+	// TODO fix this, problem is index going out of reach, for the last iteration we don't have space or anything so we need to read i+1
+	var values []string
+	// id integer primary key
+	for len(input) > 0 {
+		fmt.Println("hello index")
+		fmt.Println(index)
+		fmt.Printf("%q\n", input[:index])
+		if index == len(input)-1 {
+			val := input[:index+1]
+			values = append(values, val)
+			break
+		} else if input[index] == ' ' {
+			val := input[:index]
+			values = append(values, val)
+			input = strings.TrimSpace(input[index:])
+			index = -1
+
+		}
+		index++
+	}
+
+	if len(values) < 2 {
+		panic("column should have at least two attrbiutes, name and type")
+	}
+
+	fmt.Println("values???")
+	fmt.Println(values)
+
+	columnConstrain.columnName = values[0]
+	if _, ok := sqlQueryAllowedColumnType[SQLQueryColumnType(values[1])]; !ok {
+		panic("Unsported column type" + values[1])
+	}
+
+	columnConstrain.columnType = values[1]
+	constrain := make([]string, 0)
+	for _, v := range values[2:] {
+		constrain = append(constrain, v)
+		val := strings.Join(constrain, " ")
+		if _, ok := sqlQueryAllowedColumnAttributes[SQLQueryColumnAttribute(val)]; !ok {
+			continue
+		}
+		columnConstrain.constrains = append(columnConstrain.constrains, val)
+		constrain = make([]string, 0)
+	}
+
+	if len(constrain) > 0 {
+		panic("Unsported constrain" + strings.Join(constrain, " "))
+	}
+
+	return columnConstrain
 }
 
 func handleCreateTableSqlQuery(parsedData LastPageParsed, input string) []byte {
@@ -1030,13 +1147,16 @@ func handleCreateTableSqlQuery(parsedData LastPageParsed, input string) []byte {
 	//TODO: PARSER
 	//````````````````````````````````````````````````````````````````````````````````````````````````````````````
 
-	// createSqlQueryData = parseCreateTableQuery(input)
+	createSqlQueryData1 := parseCreateTableQuery(input)
+
+	fmt.Println("is parsing working??")
+	fmt.Println(createSqlQueryData1)
 	createSqlQueryData := CreateActionQueryData{
-		rawQuery:   "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)",
+		rawQuery:   "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)",
 		action:     SqlQueryCreateActionType,
 		objectType: SqlQueryTableObjectType,
 		entityName: "user",
-		columns: []SQLQueryColumn{
+		columns: []SQLQueryColumnConstrains{
 			{columnName: "id", columnType: "integer", constrains: []string{"primary key"}},
 			{columnName: "name", columnType: "integer", constrains: []string{}},
 		},
@@ -1117,7 +1237,7 @@ func parseStartQuery(input string) []string {
 
 func main() {
 
-	input := "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)"
+	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	res := parseStartQuery(input)
 
 	// We always need to rage page 0
