@@ -163,6 +163,10 @@ type LastPageParseLatestRow struct {
 	columns []PageParseColumn
 }
 
+type DbInfo struct {
+	pageNumber int
+}
+
 type LastPageParsed struct {
 	dbHeader             []byte // only for first page
 	btreeType            int
@@ -174,6 +178,7 @@ type LastPageParsed struct {
 	pointers             []byte
 	cellArea             []byte
 	latesRow             LastPageParseLatestRow
+	dbInfo               DbInfo
 }
 
 type SQLQueryActionType string
@@ -294,8 +299,8 @@ func exectueCommand(input string, pNumber int) {
 	_, parsedQuery := genericParser(input)
 
 	// We always need to rage page 0
-	data := readDbPage(0)
-	parsedData := parseReadPage(data, true)
+	data, fileInfo := readDbPage(0)
+	parsedData := parseReadPage(data, true, fileInfo)
 
 	// fmt.Println("parsed last page")
 	// fmt.Printf("%+v", parsedData)
@@ -317,7 +322,7 @@ func main() {
 
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input, 0)
-	writeExtraPageTMP()
+	// writeExtraPageTMP()
 
 	input = "INSERT INTO user (name) values('Alice')"
 	exectueCommand(input, 2)

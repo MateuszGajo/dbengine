@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-const (
-	InternalSchemaIndexStart = 2
-)
-
 func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) []byte {
 	// parse query lets assume output bellow
 	createSqlQueryData := parseCreateTableQuery(parsedQuery, input)
@@ -17,20 +13,21 @@ func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedVa
 	// rowContentLength, row := createSchemaCell(v.input, v.queryData, parsedData.latesRow)
 
 	// Starting point is 2
-	internalIndexForSchema := InternalSchemaIndexStart
+	var pointerInSchemaToData int = 2 // db is not initialize, first page for schema, second for data
 	//first read schema, starting from page 1, we will deal with multipage then
 	if len(parsedData.latesRow.columns) > 3 {
 		if parsedData.latesRow.columns[3].columnType != "1" {
 			panic("We are expecting this to be internal index schema")
 		}
-		internalIndexForSchema := int(parsedData.latesRow.columns[3].columnValue[0])
-		internalIndexForSchema++
+		pointerInSchemaToData = int(parsedData.latesRow.columns[3].columnValue[0])
+		// TODO: make this work
+		pointerInSchemaToData = parsedData.dbInfo.pageNumber + 1
 	}
 
 	// Create a cell pass cell that are already there(latest pointer etc), get created cell's length + pointers, i think length is undded, pointer is all we care about, we only need all bytes, currnet cell + new one, + header, there rest should be zeros, for starting cell value we have latest pointers, and pointers array is already there
 	// Modify headers fields after cell has been added
 	// ADD cell, defined how many cell we are added and how many values in eachg cell (length will be calculate internally)
-	cell := createCell(TableBtreeLeafCell, parsedData.latesRow, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, internalIndexForSchema, createSqlQueryData.rawQuery)
+	cell := createCell(TableBtreeLeafCell, &parsedData, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointerInSchemaToData, createSqlQueryData.rawQuery)
 	allCells := cell.data
 	allCells = append(allCells, parsedData.cellArea...)
 	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
@@ -71,11 +68,11 @@ func findTableNameInSchemaPage(page LastPageParsed, value string) []PageParseCol
 	// ``````````````````````````````````
 	// ``````````````````````````````````
 	// ``````````````````````````````````
-	// TODO: add some common for that
-	// LETS add parsing column as common
-	// then we need to find schema in insert query
-	// find if passer talbe name is defined in schema
-	// then add value in tree
+	// TODO: add some commons
+	// TESt everythins
+	// Write insert to file
+	// Verify it w sqlite3
+	// Refactor!!
 	// ``````````````````````````````````
 	// ``````````````````````````````````
 	// ``````````````````````````````````
@@ -155,27 +152,93 @@ func handleInsertSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, 
 	if len(currentQueryColumns.dataNested) != len(currentQueryValues.dataNested) {
 		panic("Number of columns passed, should match with number of values")
 	}
-
+	var dataToWrite []interface{}
 mainloop:
-	for i := 0; i < len(currentQueryColumns.dataNested); i++ {
-		columnName := currentQueryColumns.dataNested[i]
-		columnData := currentQueryValues.dataNested[i]
+	for _, v := range createSqlQueryData.columns {
+		columnName := v.columnName
 
-		for j := 0; j < len(createSqlQueryData.columns); j++ {
-			if createSqlQueryData.columns[j].columnName == columnName.data {
-				if !validateData("integer", columnData.data) {
+		for j := 0; j < len(currentQueryColumns.dataNested); j++ {
+			if currentQueryColumns.dataNested[j].data == columnName {
+				columnValue := currentQueryValues.dataNested[j].data
+				if !validateData("integer", columnValue) {
 					panic("invalid type")
 				}
+				//parse value
+				if columnValue[0] == byte('\'') {
+					if columnValue[len(columnValue)-1] != '\'' {
+						panic("invalid value, string started with ' should end with '")
+					} else {
+						dataToWrite = append(dataToWrite, columnValue[1:len(columnValue)-1])
+						continue mainloop
+					}
+				}
+				dataToWrite = append(dataToWrite, columnValue)
 				continue mainloop
 			}
+
+			// if createSqlQueryData.columns[j].columnName == columnName.data {
+
+			// 	if(strings.Contains(columnData.data,"'")) {
+			// 		dataToWrite
+			// 	}
+			// 	// TODO: also need to validate constrains as not null
+			// 	continue mainloop
+			// }
 		}
-		panic("couldn't find column")
+		// we didn't find value
+		// if() TODO add check if is there is not null constrain, return err accordingly
+		// panic("couldn't find column")
+		// TODO: if is autoincrement or default value, insert value
+		dataToWrite = append(dataToWrite, nil)
 
 	}
+
+	// for _,v := range current
 	fmt.Println("passed validation")
-	// cell := createCell(TableBtreeLeafCell, parsedData.latesRow, string(createSqlQueryData.objectType))
-	// allCells := cell.data
-	// allCells = append(allCells, parsedData.cellArea...)
+	fmt.Println("values to write")
+	fmt.Println(dataToWrite...)
+	parsedData = LastPageParsed{
+		dbHeader:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		freeBlock:            0,
+		numberofCells:        0,
+		startCellContentArea: 0,
+		framgenetedArea:      0,
+		rightMostpointer:     []byte{},
+		pointers:             []byte{},
+		cellArea:             []byte{},
+		latesRow:             LastPageParseLatestRow{},
+		dbInfo:               DbInfo{},
+	}
+	cell := createCell(TableBtreeLeafCell, nil, dataToWrite...)
+	allCells := cell.data
+	// TODO Concatenate this
+	allCells = append(allCells, []byte{}...)
+
+	fmt.Println("cells")
+	fmt.Println(cell)
+	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, parsedData)
+	// Zeros data
+	zerosLength := PageSize - len(btreeHeader) - len(allCells)
+	// - len(allCells)
+	zerosSpace := make([]byte, zerosLength)
+	//General method to save the daata to disk i guess
+	dataToSave := []byte{}
+	dataToSave = append(dataToSave, btreeHeader...)
+	dataToSave = append(dataToSave, zerosSpace...)
+	dataToSave = append(dataToSave, allCells...)
+
+	// TODO: its not that simple as writing to first page need to handle it
+	dataPage := res[3].columnValue
+
+	fmt.Println("datapage")
+	fmt.Println(dataPage)
+
+	fmt.Println("Data to save")
+	// fmt.Println(dataToSave)
+	fmt.Println(len(dataToSave))
+
+	writeToFile(dataToSave, int(dataPage[0])-1)
 
 	return []byte{}
 }

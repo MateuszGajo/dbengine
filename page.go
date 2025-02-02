@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strconv"
 )
@@ -112,11 +113,14 @@ func calculateTextLength(value string) []byte {
 	}
 }
 
-func createCell(btreeType BtreeType, latestRow LastPageParseLatestRow, values ...interface{}) CreateCell {
+func createCell(btreeType BtreeType, latestRow *LastPageParsed, values ...interface{}) CreateCell {
 	if btreeType == TableBtreeLeafCell {
 		var columnValues []byte = []byte{}
 		var columnLength []byte = []byte{}
-		var schemaRowId = latestRow.rowId
+		var schemaRowId = 0
+		if latestRow != nil {
+			schemaRowId = latestRow.latesRow.rowId
+		}
 
 		schemaRowId++
 
@@ -133,6 +137,9 @@ func createCell(btreeType BtreeType, latestRow LastPageParseLatestRow, values ..
 				value := v.(string)
 				columnValues = append(columnValues, []byte(value)...)
 				columnLength = append(columnLength, calculateTextLength(value)...)
+			case nil:
+				columnValues = append(columnValues, []byte{}...)
+				columnLength = append(columnLength, 0)
 			default:
 				fmt.Println("hello what do we got here")
 				fmt.Fprintln(os.Stdout, []any{values}...)
@@ -207,14 +214,14 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 	return rowColumn
 }
 
-func readDbPage(pageNumber int) []byte {
+func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
 
 	if _, err := os.Stat(pwd + "/aa.db"); os.IsNotExist(err) {
-		return []byte{}
+		return []byte{}, nil
 	}
 	fd, err := os.Open(pwd + "/aa.db") // Adjust path as needed
 	if err != nil {
@@ -228,13 +235,21 @@ func readDbPage(pageNumber int) []byte {
 	n, err := io.ReadFull(fd, buff)
 	if err != nil && err != io.EOF { // Handle EOF and other errors
 		fmt.Println("Error reading file:", err)
-		return nil
+		return nil, nil
 	}
 
-	return buff[:n] // Return the bytes actually read
+	fileInfo, err := fd.Stat()
+	if err != nil || fileInfo == nil {
+
+		panic("Error while getting information about file")
+	}
+	fmt.Println("size")
+	fmt.Println(fileInfo.Size())
+
+	return buff[:n], fileInfo // Return the bytes actually read
 }
 
-func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
+func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPageParsed {
 	if len(data) == 0 {
 		dbHeader := []byte{}
 		if isFirstPage {
@@ -251,6 +266,9 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 				rowId:   0,
 				data:    []byte{},
 				columns: []PageParseColumn{},
+			},
+			dbInfo: DbInfo{
+				pageNumber: 0,
 			},
 		}
 	}
@@ -350,6 +368,9 @@ func parseReadPage(data []byte, isFirstPage bool) LastPageParsed {
 			rowId:   int(latestRowId),
 			data:    latestRow,
 			columns: latestRowColumns,
+		},
+		dbInfo: DbInfo{
+			pageNumber: int(fileInfo.Size() / int64(PageSize)),
 		},
 	}
 }
