@@ -225,8 +225,8 @@ type UserData struct {
 }
 
 type CreateCell struct {
-	length int
-	data   []byte
+	dataLength int
+	data       []byte
 }
 
 type SQLQueryColumnAttribute string
@@ -305,9 +305,8 @@ func exectueCommand(input string, pNumber int) {
 	// fmt.Println("parsed last page")
 	// fmt.Printf("%+v", parsedData)
 
-	page := handleActionType(parsedQuery, input, parsedData)
+	handleActionType(parsedQuery, input, parsedData)
 
-	writeToFile(page, pNumber)
 }
 
 func writeExtraPageTMP() {
@@ -324,8 +323,8 @@ func main() {
 	exectueCommand(input, 0)
 	// writeExtraPageTMP()
 
-	input = "INSERT INTO user (name) values('Alice')"
-	exectueCommand(input, 2)
+	// input = "INSERT INTO user (name) values('Alice')"
+	// exectueCommand(input, 2)
 
 	//
 

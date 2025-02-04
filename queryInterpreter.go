@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) []byte {
+func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) {
 	// parse query lets assume output bellow
 	createSqlQueryData := parseCreateTableQuery(parsedQuery, input)
 
@@ -31,7 +31,7 @@ func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedVa
 	allCells := cell.data
 	allCells = append(allCells, parsedData.cellArea...)
 	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
-	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, parsedData)
+	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, &parsedData)
 	// Zeros data
 	zerosLength := PageSize - len(parsedData.dbHeader) - len(btreeHeader) - len(allCells)
 	zerosSpace := make([]byte, zerosLength)
@@ -41,10 +41,20 @@ func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedVa
 	dataToSave = append(dataToSave, zerosSpace...)
 	dataToSave = append(dataToSave, allCells...)
 
-	return dataToSave
+	writeToFile(dataToSave, 0)
+
+	btreeHeaderForData := BtreeHeaderSchema(TableBtreeLeafCell, CreateCell{dataLength: 0, data: []byte{}}, nil)
+	zerosLength = PageSize - len(btreeHeaderForData)
+	zerosSpace = make([]byte, zerosLength)
+
+	emptyDataPage := btreeHeaderForData
+	emptyDataPage = append(emptyDataPage, zerosSpace...)
+
+	writeToFile(emptyDataPage, pointerInSchemaToData-1)
+
 }
 
-func handleCreaqteSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) []byte {
+func handleCreaqteSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) {
 
 	if len(parsedQuery) < 2 {
 		fmt.Printf("%+v", parsedQuery)
@@ -53,7 +63,7 @@ func handleCreaqteSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue,
 
 	switch SQLCreateQueryObjectType(strings.ToLower(parsedQuery[1].data)) {
 	case SqlQueryTableObjectType:
-		return handleCreateTableSqlQuery(parsedData, parsedQuery, input)
+		handleCreateTableSqlQuery(parsedData, parsedQuery, input)
 	default:
 		panic("Object type not implement: " + parsedQuery[1].data)
 	}
@@ -217,7 +227,7 @@ mainloop:
 
 	fmt.Println("cells")
 	fmt.Println(cell)
-	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, parsedData)
+	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, &parsedData)
 	// Zeros data
 	zerosLength := PageSize - len(btreeHeader) - len(allCells)
 	// - len(allCells)
@@ -243,7 +253,7 @@ mainloop:
 	return []byte{}
 }
 
-func handleActionType(parsedQuery []ParsedValue, input string, parsedData LastPageParsed) []byte {
+func handleActionType(parsedQuery []ParsedValue, input string, parsedData LastPageParsed) {
 
 	if len(parsedQuery) < 1 {
 		fmt.Printf("%+v", parsedQuery)
@@ -253,9 +263,9 @@ func handleActionType(parsedQuery []ParsedValue, input string, parsedData LastPa
 	switch SQLQueryActionType(strings.ToLower(parsedQuery[0].data)) {
 	case SqlQueryCreateActionType:
 
-		return handleCreaqteSqlQuery(parsedData, parsedQuery, input)
+		handleCreaqteSqlQuery(parsedData, parsedQuery, input)
 	case SqlQueryInsertActionType:
-		return handleInsertSqlQuery(parsedData, parsedQuery, input)
+		handleInsertSqlQuery(parsedData, parsedQuery, input)
 	default:
 		panic("Unsported sql query type: " + parsedQuery[0].data)
 	}

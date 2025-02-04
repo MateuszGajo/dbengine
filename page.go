@@ -155,14 +155,14 @@ func createCell(btreeType BtreeType, latestRow *LastPageParsed, values ...interf
 		row = append(row, columnLength...)
 		row = append(row, columnValues...)
 
-		rowLength := len(row) - 1 // we don't count row id i guess
+		rowLength := len(row) - 1 // we don't count row id
 
 		result := []byte{byte(rowLength)}
 		result = append(result, row...)
 
 		return CreateCell{
-			length: rowLength,
-			data:   result,
+			dataLength: rowLength,
+			data:       result,
 		}
 	}
 
@@ -375,11 +375,16 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 	}
 }
 
-func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData LastPageParsed) []byte {
+func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData *LastPageParsed) []byte {
 	//This should be read from the page
-	currentNumberOfCell := parsedData.numberofCells
-	currentCellStart := parsedData.startCellContentArea
-	pointers := parsedData.pointers
+	currentNumberOfCell := 0
+	currentCellStart := PageSize
+	pointers := []byte{}
+	if parsedData != nil {
+		currentNumberOfCell = parsedData.numberofCells
+		currentCellStart = parsedData.startCellContentArea
+		pointers = parsedData.pointers
+	}
 
 	var lastPointer int = PageSize
 
@@ -387,9 +392,9 @@ func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData LastPage
 		lastPointer = int(binary.BigEndian.Uint16(parsedData.pointers[len(parsedData.pointers)-2 : len(parsedData.pointers)]))
 	}
 
-	if cell.length > 0 {
+	if cell.dataLength > 0 {
 		currentNumberOfCell += 1
-		newCellStartPosition := lastPointer - cell.length - 2
+		newCellStartPosition := lastPointer - cell.dataLength - 2
 		currentCellStart = newCellStartPosition
 		pointers = append(pointers, intToBinary(newCellStartPosition, 2)...) // -2 is for row id and for length byte
 	}
