@@ -250,6 +250,9 @@ func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
 }
 
 func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPageParsed {
+	if len(data) != PageSize {
+		panic("invalid page size, expected" + strconv.Itoa(PageSize))
+	}
 	if len(data) == 0 {
 		dbHeader := []byte{}
 		if isFirstPage {
@@ -262,7 +265,7 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 			startCellContentArea: PageSize,
 			cellArea:             []byte{},
 			pointers:             []byte{},
-			latesRow: LastPageParseLatestRow{
+			latesRow: &LastPageParseLatestRow{
 				rowId:   0,
 				data:    []byte{},
 				columns: []PageParseColumn{},
@@ -298,6 +301,7 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 		fmt.Println(numberofCells)
 		panic("implement number of cell more than 0 cell")
 	}
+
 	numberofCellsInt := int(numberofCells[1])
 	startCellContentArea := dataToParse[5:7]
 	// if startCellContentArea[0] != 0 {
@@ -320,9 +324,12 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 
 	for {
 		pointer := dataToParse[:2]
+		fmt.Println("pointers fails")
 		if pointer[0] == 0 && pointer[1] == 0 {
+			fmt.Println("pointers not fails")
 			break
 		}
+		fmt.Println("pointers not fails")
 		dataToParse = dataToParse[2:]
 		pointers = append(pointers, pointer...)
 	}
@@ -332,27 +339,42 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 	}
 
 	cellAreaContent := data[startCellContentAreaBigEndian:]
-	var latestRowLengthArr []byte
-	for i := 0; i < 9; i++ {
-		latestRowLengthArr = append(latestRowLengthArr, cellAreaContent[i])
-		if cellAreaContent[i] < 127 {
-			break
+	latestRowHeaders := []byte{}
+	latestRowValues := []byte{}
+	var latestRow LastPageParseLatestRow
+
+	if len(cellAreaContent) > 0 {
+		latestRowLength := int(cellAreaContent[0]) + 2
+		fmt.Println("latestes row length?")
+		//TOOD:  wait what why 9??? no idea, was it hardcoded?? i guess
+		var latestRowLengthArr []byte
+		for i := 0; i < latestRowLength; i++ {
+			latestRowLengthArr = append(latestRowLengthArr, cellAreaContent[i])
+			if cellAreaContent[i] < 127 {
+				break
+			}
+		}
+		fmt.Println("latestes row length? after")
+		if len(latestRowLengthArr) > 1 {
+			panic("Need to be handled later")
+		}
+
+		// latestRowLength := int(latestRowLengthArr[0]) + 2 // 1 bytes for length, 1 bytes for row id
+		if len(cellAreaContent) < int(latestRowLength) {
+			panic("cellAreaContent length is lesser than start of cell content area, row length%")
+		}
+		latestRowRaw := cellAreaContent[:latestRowLength]
+		latestRowId := latestRowRaw[1]
+		latestRowheaderLength := latestRowRaw[2]
+		latestRowHeaders = latestRowRaw[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
+		latestRowValues = latestRowRaw[3-1+int(latestRowheaderLength):]
+		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
+		latestRow = LastPageParseLatestRow{
+			rowId:   int(latestRowId),
+			data:    latestRowRaw,
+			columns: latestRowColumns,
 		}
 	}
-	if len(latestRowLengthArr) > 1 {
-		panic("Need to be handled later")
-	}
-
-	latestRowLength := int(latestRowLengthArr[0]) + 2 // 1 bytes for length, 1 bytes for row id
-	if len(cellAreaContent) < int(latestRowLength) {
-		panic("cellAreaContent length is lesser than start of cell content area, row length%")
-	}
-	latestRow := cellAreaContent[:latestRowLength]
-	latestRowId := latestRow[1]
-	latestRowheaderLength := latestRow[2]
-	latestRowHeaders := latestRow[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
-	latestRowValues := latestRow[3-1+int(latestRowheaderLength):]
-	var latestRowColumns []PageParseColumn = parseDbPageColumn(latestRowHeaders, latestRowValues)
 
 	return LastPageParsed{
 		dbHeader:             dbHeader,
@@ -364,11 +386,7 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 		framgenetedArea:      int(fragmenetedArea),
 		freeBlock:            int(freeBlocksInt),
 		pointers:             pointers,
-		latesRow: LastPageParseLatestRow{
-			rowId:   int(latestRowId),
-			data:    latestRow,
-			columns: latestRowColumns,
-		},
+		latesRow:             &latestRow,
 		dbInfo: DbInfo{
 			pageNumber: int(fileInfo.Size() / int64(PageSize)),
 		},

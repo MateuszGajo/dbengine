@@ -217,7 +217,7 @@ mainloop:
 		rightMostpointer:     []byte{},
 		pointers:             []byte{},
 		cellArea:             []byte{},
-		latesRow:             LastPageParseLatestRow{},
+		latesRow:             &LastPageParseLatestRow{},
 		dbInfo:               DbInfo{},
 	}
 	cell := createCell(TableBtreeLeafCell, nil, dataToWrite...)
