@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -97,6 +98,34 @@ func TestCreateSQL(t *testing.T) {
 
 	if data[3].dataNested[5].data != "TEXT" {
 		t.Errorf("Expect column type to be integer, got: %v", data[3].dataNested[5].data)
+	}
+}
+
+func TestParseColumnAttributes(t *testing.T) {
+	input := "CREATE TABLE user(id INTEGER PRIMARY KEY, name TEXT)"
+	_, data := genericParser(input)
+
+	fmt.Println(data)
+	parsedColumns := parseSqlQueryColumnAttributes(data[3])
+
+	if parsedColumns[0].columnName != "id" {
+		t.Errorf("Expected column name to be: %v, insted we got: %v", "id", parsedColumns[0].columnName)
+	}
+
+	if parsedColumns[0].columnType != "INTEGER" {
+		t.Errorf("Expected column type to be: %v, insted we got: %v", "INTEGER", parsedColumns[0].columnType)
+	}
+
+	if parsedColumns[0].constrains[0] != "PRIMARY" || parsedColumns[0].constrains[1] != "KEY" {
+		t.Errorf("Expected constains to be PRIMARY KEY, got: %v", parsedColumns[0].constrains[0]+" "+parsedColumns[0].constrains[1])
+	}
+
+	if parsedColumns[1].columnName != "name" {
+		t.Errorf("Expected second column name to be name, got: %v", parsedColumns[1].columnName)
+	}
+
+	if parsedColumns[1].columnType != "TEXT" {
+		t.Errorf("Expected second column type to be text, got: %v", parsedColumns[1].columnType)
 	}
 }
 

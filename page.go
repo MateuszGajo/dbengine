@@ -9,6 +9,16 @@ import (
 	"strconv"
 )
 
+// ````````````````````````````
+// ````````````````````````````
+// ````````````````````````````
+// ````````TODO!!!!!!!``````
+// ````````````````````````````
+// ````````````````````````````
+// ````````````````````````````
+// 1. Update header with data save
+// 2. Change a logic with getting data from file, don't call it LastPagePArse, just page
+// 3. Add data to have multiple pages, multiple pages for schema too, implement this
 func header() []byte {
 	headerString := []byte("SQLite format 3\000")
 	pageSize := intToBinary(PageSize, 2)
@@ -176,6 +186,16 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 		if int(v) > 127 {
 			panic("handle case that we have multiple bytes")
 		}
+		if int(v) == 0 {
+			column := PageParseColumn{
+				columnType:   string(strconv.Itoa(int(v))),
+				columnLength: 0,
+				columnValue:  []byte{0},
+			}
+			rowColumn = append(rowColumn, column)
+			continue
+
+		}
 		if int(v) < 10 {
 			//int
 			column := PageParseColumn{
@@ -302,6 +322,8 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 		panic("implement number of cell more than 0 cell")
 	}
 
+	fmt.Println("checkpoint 1")
+
 	numberofCellsInt := int(numberofCells[1])
 	startCellContentArea := dataToParse[5:7]
 	// if startCellContentArea[0] != 0 {
@@ -319,21 +341,18 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 	} else {
 		dataToParse = dataToParse[8:]
 	}
+	fmt.Println("checkpoint 2")
 
 	var pointers []byte
 
 	for {
 		pointer := dataToParse[:2]
-		fmt.Println("pointers fails")
 		if pointer[0] == 0 && pointer[1] == 0 {
-			fmt.Println("pointers not fails")
 			break
 		}
-		fmt.Println("pointers not fails")
 		dataToParse = dataToParse[2:]
 		pointers = append(pointers, pointer...)
 	}
-
 	if len(data) < int(startCellContentAreaBigEndian) {
 		panic("data length is lesser than start of cell content area")
 	}
@@ -363,12 +382,17 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 		if len(cellAreaContent) < int(latestRowLength) {
 			panic("cellAreaContent length is lesser than start of cell content area, row length%")
 		}
+		fmt.Println("checkpoint 4")
 		latestRowRaw := cellAreaContent[:latestRowLength]
 		latestRowId := latestRowRaw[1]
 		latestRowheaderLength := latestRowRaw[2]
 		latestRowHeaders = latestRowRaw[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
 		latestRowValues = latestRowRaw[3-1+int(latestRowheaderLength):]
+		fmt.Println("checkpoint 5")
+		fmt.Println(latestRowHeaders)
+		fmt.Println(latestRowValues)
 		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
+		fmt.Println("checkpoint 6")
 		latestRow = LastPageParseLatestRow{
 			rowId:   int(latestRowId),
 			data:    latestRowRaw,
