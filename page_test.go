@@ -11,7 +11,7 @@ import (
 
 func TestCreateCellWithSingleValue(t *testing.T) {
 	btreeType := TableBtreeLeafCell
-	page := LastPageParsed{
+	page := PageParsed{
 		latesRow: &LastPageParseLatestRow{
 			rowId: 1,
 		},
@@ -46,7 +46,7 @@ func TestCreateCellWithSingleValue(t *testing.T) {
 
 func TestCreateCellWithMultipleValues(t *testing.T) {
 	btreeType := TableBtreeLeafCell
-	page := LastPageParsed{
+	page := PageParsed{
 		latesRow: &LastPageParseLatestRow{
 			rowId: 1,
 		},
@@ -95,7 +95,7 @@ func TestCreateCellWithMultipleValues(t *testing.T) {
 
 func TestCreateHeader(t *testing.T) {
 	btreeType := TableBtreeLeafCell
-	page := LastPageParsed{
+	page := PageParsed{
 		latesRow: &LastPageParseLatestRow{
 			rowId: 1,
 		},
@@ -138,15 +138,16 @@ func TestCreateHeader(t *testing.T) {
 // TODO: write logic for handling other types of header than 0x0d
 func TestCreateHeaderWithPage(t *testing.T) {
 	btreeType := TableBtreeLeafCell
-	page := LastPageParsed{
+	page := PageParsed{
 		latesRow: &LastPageParseLatestRow{
 			rowId: 1,
 		},
 	}
 
 	cellArea := []byte{0, 1, 2, 3, 4, 5}
-	parsedData := LastPageParsed{
-		dbHeader:             []byte{},
+	parsedData := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
 		cellArea:             cellArea,
 		startCellContentArea: PageSize - len(cellArea),
 		numberofCells:        1,
@@ -210,7 +211,7 @@ func TestParseDbPageWithOnlyHeader(t *testing.T) {
 	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, CreateCell{dataLength: 0}, nil)
 	zeros := make([]byte, PageSize-len(btreeHeader))
 	data := append(btreeHeader, zeros...)
-	res := parseReadPage(data, false, MockFileInfo{SizeVal: 10})
+	res := parseReadPage(data, 1, MockFileInfo{SizeVal: 10})
 
 	if res.btreeType != int(TableBtreeLeafCell) {
 		t.Errorf("Expected: %v tree type, insted we got: %v", TableBtreeLeafCell, res.btreeType)
@@ -245,7 +246,7 @@ func TestParseDbPage(t *testing.T) {
 	data = append(data, btreeHeader...)
 	data = append(data, zeros...)
 	data = append(data, cells.data...)
-	res := parseReadPage(data, false, MockFileInfo{SizeVal: 10})
+	res := parseReadPage(data, 1, MockFileInfo{SizeVal: 10})
 	fmt.Println("after all?")
 
 	if res.btreeType != int(TableBtreeLeafCell) {
@@ -282,4 +283,41 @@ func TestParseDbPage(t *testing.T) {
 	if binary.BigEndian.Uint16(res.pointers[:2]) != uint16(PageSize-len(cells.data)) {
 		t.Errorf("Expected : %v, insted we got: %v", cells, res.latesRow.data)
 	}
+}
+
+func TestAssemblePage(t *testing.T) {
+
+	data := []byte{}
+	cells := createCell(TableBtreeLeafCell, nil, "alice", nil)
+	fmt.Println("after creating a cell")
+	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cells, nil)
+	fmt.Println("after btree header scgena")
+	zeros := make([]byte, PageSize-len(btreeHeader)-len(cells.data))
+	data = append(data, btreeHeader...)
+	data = append(data, zeros...)
+	data = append(data, cells.data...)
+	res := parseReadPage(data, 1, MockFileInfo{SizeVal: 10})
+
+	assembledPage := assembleDbPage(res)
+
+	if !reflect.DeepEqual(data, assembledPage) {
+		fmt.Println("assembled page")
+		fmt.Println(assembledPage)
+		fmt.Println("raw data")
+		fmt.Println(data)
+		t.Error("Asembled page is different than input passed")
+	}
+}
+
+func TestAssembleHeader(t *testing.T) {
+
+	dbHeader := header()
+	assembledHeader := assembleDbHeader(dbHeader)
+	fmt.Println(len(assembledHeader))
+	parseHeader := parseDbHeader(assembledHeader)
+
+	if !reflect.DeepEqual(dbHeader, parseHeader) {
+		t.Errorf("Header are different, expected: %v, got %v", dbHeader, parseHeader)
+	}
+
 }

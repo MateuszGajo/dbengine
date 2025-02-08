@@ -115,7 +115,19 @@ func BtreeHeaderValue() []byte {
 	return data
 }
 
-func writeToFile(data []byte, page int) {
+func writeToFile(data []byte, page int, firstPage PageParsed) {
+	writeToFileRaw(data, page)
+	if page == 0 {
+		return
+	}
+	firstPage.dbHeader.fileChangeCounter++
+
+	assembledPage := assembleDbPage(firstPage)
+	writeToFileRaw(assembledPage, 0)
+
+}
+
+func writeToFileRaw(data []byte, page int) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -132,7 +144,6 @@ func writeToFile(data []byte, page int) {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 type BtreeType int
@@ -167,8 +178,35 @@ type DbInfo struct {
 	pageNumber int
 }
 
-type LastPageParsed struct {
-	dbHeader             []byte // only for first page
+type DbHeader struct {
+	headerString               []byte
+	databasePageSize           int
+	databaseFileWriteVersion   []byte
+	databaseFileReadVersion    []byte
+	reservedBytesSpace         []byte
+	maxEmbeddedPayloadFraction []byte
+	minEmbeddedPayloadFraction []byte
+	leafPayloadFraction        []byte
+	fileChangeCounter          int
+	dbSizeInPages              int
+	firstFreeListTrunkPage     []byte
+	totalNumberOfFreeListPages []byte
+	schemaCookie               int
+	schemaFormatNumber         []byte
+	defaultPageCacheSize       []byte
+	largestBTreePage           []byte
+	databaseEncoding           []byte
+	userVersion                []byte
+	incrementalVacuumMode      []byte
+	applicationId              []byte
+	reservedForExpansion       []byte
+	versionValidForNumber      int
+	sqlVersionNumber           []byte
+}
+
+type PageParsed struct {
+	dbHeader             DbHeader // only for first page
+	dbHeaderSize         int
 	btreeType            int
 	freeBlock            int
 	numberofCells        int
@@ -293,6 +331,36 @@ func parseStartQuery(input string) []string {
 	return res
 }
 
+// WE need to have some locking, lets do for bow exclusive lock only
+
+type LockType string
+
+const (
+	LockTypeExclusive = "ExclusiveLockType"
+)
+
+// sqlite stores lock in db i think
+var locks = map[LockType][]string{
+	LockTypeExclusive: []string{},
+} //
+
+// Shared lock allow multiple select to read data but block writer, write can use WAL to save data without interuption
+
+// Exclusive lock,
+// cache is invalidated, so no one can read from page
+//generally lock are on db file not on cache used to retrive pages faster
+
+// As first implementation we can do exclusive lock, and then implement more granuall ones
+
+// WE we need to implement
+// if transaction is writing its block all other transaction
+// if we have two insert transaction and second one has stall data and tries to write stall data, it should be detected at write, and retry implement to get current data and write again
+
+// Action plan:
+// 1. Add/remove exlucsive lock by process
+// 2 While reading data check for lock
+// 3 while inserting check for lock, in case data has changed need to retry logic
+
 func exectueCommand(input string, pNumber int) {
 	// res := parseStartQuery(input)
 	fmt.Println("run generic parser")
@@ -300,21 +368,24 @@ func exectueCommand(input string, pNumber int) {
 
 	// We always need to rage page 0
 	data, fileInfo := readDbPage(0)
-	parsedData := parseReadPage(data, true, fileInfo)
+
+	parsedData := parseReadPage(data, 0, fileInfo)
+
+	server := ServerStruct{
+		firstPage: parsedData,
+		pageSize:  PageSize,
+	}
 
 	// fmt.Println("parsed last page")
 	// fmt.Printf("%+v", parsedData)
 
-	handleActionType(parsedQuery, input, parsedData)
+	server.handleActionType(parsedQuery, input, parsedData)
 
 }
 
-func writeExtraPageTMP() {
-	page2 := []byte{0x0d, 0, 0, 0, 0, 0x10}
-	zeros := make([]byte, PageSize-len(page2))
-	allData := page2
-	allData = append(allData, zeros...)
-	writeToFile(allData, 1)
+type ServerStruct struct {
+	firstPage PageParsed
+	pageSize  int
 }
 
 func main() {

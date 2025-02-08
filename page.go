@@ -19,9 +19,14 @@ import (
 // 1. Update header with data save
 // 2. Change a logic with getting data from file, don't call it LastPagePArse, just page
 // 3. Add data to have multiple pages, multiple pages for schema too, implement this
-func header() []byte {
+
+// edit
+// finisparseDbHeader(data []byte)
+// then add writing to db pages
+// fix error handling, return errr don't panic
+func header() DbHeader {
 	headerString := []byte("SQLite format 3\000")
-	pageSize := intToBinary(PageSize, 2)
+	pageSize := 2
 	writeFileVersion := intToBinary(LegacyFileWriteFormat, 1)
 	readFileVersion := intToBinary(LegacyFileReadFormat, 1)
 	// SQLite has the ability to set aside a small number of extra bytes at the end of every page for use by extensions. These extra bytes are used, for example, by the SQLite Encryption Extension to store a nonce and/or cryptographic checksum associated with each page. The "reserved space" size in the 1-byte integer at offset 20 is the number of bytes of space at the end of each page to reserve for extensions. This value is usually 0. The value can be odd.
@@ -31,8 +36,8 @@ func header() []byte {
 	//The maximum and minimum embedded payload fractions and the leaf payload fraction values must be 64, 32, and 32. These values were originally intended to be tunable parameters that could be used to modify the storage format of the b-tree algorithm. However, that functionality is not supported and there are no current plans to add support in the future. Hence, these three bytes are fixed at the values specified.
 	leafPayloadFranction := intToBinary(32, 1)
 	// The file change counter is a 4-byte big-endian integer at offset 24 that is incremented whenever the database file is unlocked after having been modified. When two or more processes are reading the same database file, each process can detect database changes from other processes by monitoring the change counter. A process will normally want to flush its database page cache when another process modified the database, since the cache has become stale. The file change counter facilitates this.
-	fileChangeCounter := intToBinary(1, 4)
-	sizeOfDataBaseInPages := intToBinary(2, 4)
+	fileChangeCounter := 1
+	sizeOfDataBaseInPages := 2
 	// 1 page for schemas, 2 page for values
 	// END of 0000001
 	//The trunk pages are the primary pages in the freelist structure. Each trunk page can list multiple leaf pages (individual unused pages) or point to other trunk pages.
@@ -41,7 +46,7 @@ func header() []byte {
 	totalNumerOfFreeListPages := intToBinary(0, 4)
 
 	//The schema cookie is a 4-byte big-endian integer at offset 40 that is incremented whenever the database schema changes.
-	schemaCookie := intToBinary(1, 4)
+	schemaCookie := 1
 	// The schema format number is a 4-byte big-endian integer at offset 44. The schema format number is similar to the file format read and write version numbers at offsets 18 and 19 except that the schema format number refers to the high-level SQL formatting rather than the low-level b-tree formatting. Four schema format numbers are currently defined:
 
 	//     Format 1 is understood by all versions of SQLite back to version 3.0.0 (2004-06-18).
@@ -80,35 +85,36 @@ func header() []byte {
 	// Other schema-altering operations occur.
 	// we added one table
 	// TODO: this need to be updated????
-	versionValidForNumber := intToBinary(1, 4)
+	versionValidForNumber := 1
 	// end of 0000005
 	versionNumber := intToBinary(3045001, 4)
 
-	data := headerString
-	data = append(data, pageSize...)
-	data = append(data, writeFileVersion...)
-	data = append(data, readFileVersion...)
-	data = append(data, reservedByte...)
-	data = append(data, maxEmbededPayloadFranction...)
-	data = append(data, minEmbededPayloadFranction...)
-	data = append(data, leafPayloadFranction...)
-	data = append(data, fileChangeCounter...)
-	data = append(data, sizeOfDataBaseInPages...)
-	data = append(data, pageNumberFirstFreeListTrunk...)
-	data = append(data, totalNumerOfFreeListPages...)
-	data = append(data, schemaCookie...)
-	data = append(data, schemaFormatNumber...)
-	data = append(data, defaultPageSize...)
-	data = append(data, pageNumberOfLargestBtreeToAutovacuum...)
-	data = append(data, databaseTextEncoding...)
-	data = append(data, userVersionNumber...)
-	data = append(data, incrementalVacuumMode...)
-	data = append(data, applicationId...)
-	data = append(data, reservedForExpansion...)
-	data = append(data, versionValidForNumber...)
-	data = append(data, versionNumber...)
+	return DbHeader{
+		headerString:               headerString,
+		databasePageSize:           pageSize,
+		databaseFileWriteVersion:   writeFileVersion,
+		databaseFileReadVersion:    readFileVersion,
+		reservedBytesSpace:         reservedByte,
+		maxEmbeddedPayloadFraction: maxEmbededPayloadFranction,
+		minEmbeddedPayloadFraction: minEmbededPayloadFranction,
+		leafPayloadFraction:        leafPayloadFranction,
+		fileChangeCounter:          fileChangeCounter,
+		dbSizeInPages:              sizeOfDataBaseInPages,
+		firstFreeListTrunkPage:     pageNumberFirstFreeListTrunk,
+		totalNumberOfFreeListPages: totalNumerOfFreeListPages,
+		schemaCookie:               schemaCookie,
+		schemaFormatNumber:         schemaFormatNumber,
+		defaultPageCacheSize:       defaultPageSize,
+		largestBTreePage:           pageNumberOfLargestBtreeToAutovacuum,
+		databaseEncoding:           databaseTextEncoding,
+		userVersion:                userVersionNumber,
+		incrementalVacuumMode:      incrementalVacuumMode,
+		applicationId:              applicationId,
+		reservedForExpansion:       reservedForExpansion,
+		versionValidForNumber:      versionValidForNumber,
+		sqlVersionNumber:           versionNumber,
+	}
 
-	return data
 }
 
 func calculateTextLength(value string) []byte {
@@ -123,7 +129,7 @@ func calculateTextLength(value string) []byte {
 	}
 }
 
-func createCell(btreeType BtreeType, latestRow *LastPageParsed, values ...interface{}) CreateCell {
+func createCell(btreeType BtreeType, latestRow *PageParsed, values ...interface{}) CreateCell {
 	if btreeType == TableBtreeLeafCell {
 		var columnValues []byte = []byte{}
 		var columnLength []byte = []byte{}
@@ -181,6 +187,9 @@ func createCell(btreeType BtreeType, latestRow *LastPageParsed, values ...interf
 }
 
 func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
+	fmt.Println("parse db column")
+	fmt.Println(rowHeader)
+	fmt.Println(rowValues)
 	var rowColumn []PageParseColumn
 	for _, v := range rowHeader {
 		if int(v) > 127 {
@@ -218,6 +227,10 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 
 			//string
 			length := (int(v) - 13) / 2
+
+			if length > len(rowValues) {
+				panic("there is not enough data")
+			}
 			value := rowValues[:length]
 			column := PageParseColumn{
 				columnType:   "13",
@@ -269,18 +282,97 @@ func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
 	return buff[:n], fileInfo // Return the bytes actually read
 }
 
-func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPageParsed {
-	if len(data) != PageSize {
-		panic("invalid page size, expected" + strconv.Itoa(PageSize))
+func parseDbHeader(data []byte) DbHeader {
+	if len(data) != 100 {
+		panic("header should have 100 bytes")
 	}
-	if len(data) == 0 {
-		dbHeader := []byte{}
-		if isFirstPage {
-			dbHeader = header()
-		}
-		return LastPageParsed{
-			// btreeType:            int(TableBtreeLeafCell),
-			dbHeader:             dbHeader,
+	headerString := data[:16]
+	databasePageSize := data[16:18]
+	databaseFileWriteVersion := data[18:19]
+	databaseFileReadVersion := data[19:20]
+	reservedBytesSpace := data[20:21]
+	maxEmbeddedPayloadFraction := data[21:22]
+	minEmbeddedPayloadFraction := data[22:23]
+	leafPayloadFraction := data[23:24]
+	fileChangeCounter := data[24:28]
+	dbSizeInPages := data[28:32]
+	firstFreeListTrunkPage := data[32:36]
+	totalNumberOfFreeListPages := data[36:40]
+	schemaCookie := data[40:44]
+	schemaFormatNumber := data[44:48]
+	defaultPageCacheSize := data[48:52]
+	largestBTreePage := data[52:56]
+	databaseEncoding := data[56:60]
+	userVersion := data[60:64]
+	incrementalVacuumMode := data[64:68]
+	applicationId := data[68:72]
+	reservedForExpansion := data[72:92]
+	versionValidForNumber := data[92:96]
+	sqlVersionNumber := data[96:100]
+
+	return DbHeader{
+		headerString:               headerString,
+		databasePageSize:           int(binary.BigEndian.Uint16(databasePageSize)),
+		databaseFileWriteVersion:   databaseFileWriteVersion,
+		databaseFileReadVersion:    databaseFileReadVersion,
+		reservedBytesSpace:         reservedBytesSpace,
+		maxEmbeddedPayloadFraction: maxEmbeddedPayloadFraction,
+		minEmbeddedPayloadFraction: minEmbeddedPayloadFraction,
+		leafPayloadFraction:        leafPayloadFraction,
+		fileChangeCounter:          int(binary.BigEndian.Uint32(fileChangeCounter)),
+		dbSizeInPages:              int(binary.BigEndian.Uint32(dbSizeInPages)),
+		firstFreeListTrunkPage:     firstFreeListTrunkPage,
+		totalNumberOfFreeListPages: totalNumberOfFreeListPages,
+		schemaCookie:               int(binary.BigEndian.Uint32(schemaCookie)),
+		schemaFormatNumber:         schemaFormatNumber,
+		defaultPageCacheSize:       defaultPageCacheSize,
+		largestBTreePage:           largestBTreePage,
+		databaseEncoding:           databaseEncoding,
+		userVersion:                userVersion,
+		incrementalVacuumMode:      incrementalVacuumMode,
+		applicationId:              applicationId,
+		reservedForExpansion:       reservedForExpansion,
+		versionValidForNumber:      int(binary.BigEndian.Uint32(versionValidForNumber)),
+		sqlVersionNumber:           sqlVersionNumber,
+	}
+}
+
+func assembleDbHeader(header DbHeader) []byte {
+	data := header.headerString
+	data = append(data, intToBinary(header.databasePageSize, 2)...)
+	data = append(data, header.databaseFileWriteVersion...)
+	data = append(data, header.databaseFileReadVersion...)
+	data = append(data, header.reservedBytesSpace...)
+	data = append(data, header.maxEmbeddedPayloadFraction...)
+	data = append(data, header.minEmbeddedPayloadFraction...)
+	data = append(data, header.leafPayloadFraction...)
+	data = append(data, intToBinary(header.fileChangeCounter, 4)...)
+	data = append(data, intToBinary(header.dbSizeInPages, 4)...)
+	data = append(data, header.firstFreeListTrunkPage...)
+	data = append(data, header.totalNumberOfFreeListPages...)
+	data = append(data, intToBinary(header.schemaCookie, 4)...)
+	data = append(data, header.schemaFormatNumber...)
+	data = append(data, header.defaultPageCacheSize...)
+	data = append(data, header.largestBTreePage...)
+	data = append(data, header.databaseEncoding...)
+	data = append(data, header.userVersion...)
+	data = append(data, header.incrementalVacuumMode...)
+	data = append(data, header.applicationId...)
+	data = append(data, header.reservedForExpansion...)
+	data = append(data, intToBinary(header.versionValidForNumber, 4)...)
+	data = append(data, header.sqlVersionNumber...)
+
+	return data
+}
+
+func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
+	fmt.Println("parse read page execution time?")
+	fmt.Println(dbPage)
+	// fmt.Println(data)
+	if dbPage == 0 && len(data) == 0 {
+		return PageParsed{
+			dbHeader:             header(),
+			dbHeaderSize:         100,
 			numberofCells:        0,
 			startCellContentArea: PageSize,
 			cellArea:             []byte{},
@@ -295,12 +387,16 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 			},
 		}
 	}
+
+	if len(data) != PageSize {
+		panic("invalid page size, expected" + strconv.Itoa(PageSize))
+	}
 	dataToParse := data
-	dbHeader := []byte{}
-	if isFirstPage {
+	var dbHeader DbHeader
+	if dbPage == 0 {
 		//Skip header for now
 		dataToParse = dataToParse[100:]
-		dbHeader = dataToParse[:100]
+		dbHeader = parseDbHeader(data[:100])
 	}
 
 	btreeType := dataToParse[0]
@@ -384,6 +480,8 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 		}
 		fmt.Println("checkpoint 4")
 		latestRowRaw := cellAreaContent[:latestRowLength]
+		fmt.Println("lates row")
+		fmt.Println(latestRowRaw)
 		latestRowId := latestRowRaw[1]
 		latestRowheaderLength := latestRowRaw[2]
 		latestRowHeaders = latestRowRaw[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
@@ -400,7 +498,7 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 		}
 	}
 
-	return LastPageParsed{
+	return PageParsed{
 		dbHeader:             dbHeader,
 		btreeType:            int(btreeType),
 		numberofCells:        numberofCellsInt,
@@ -417,7 +515,30 @@ func parseReadPage(data []byte, isFirstPage bool, fileInfo fs.FileInfo) LastPage
 	}
 }
 
-func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData *LastPageParsed) []byte {
+func assembleDbPage(page PageParsed) []byte {
+	data := []byte{}
+	if page.dbHeaderSize > 0 {
+		data = append(data, assembleDbHeader(page.dbHeader)...)
+	}
+	data = append(data, byte(page.btreeType))
+	data = append(data, intToBinary(page.freeBlock, 2)...)
+	data = append(data, intToBinary(page.numberofCells, 2)...)
+	data = append(data, intToBinary(page.startCellContentArea, 2)...)
+	data = append(data, byte(page.framgenetedArea))
+	if len(page.rightMostpointer) > 0 {
+		data = append(data, page.rightMostpointer...)
+	}
+	data = append(data, page.pointers...)
+
+	zerosLen := PageSize - len(data) - len(page.cellArea)
+	data = append(data, make([]byte, zerosLen)...)
+	data = append(data, page.cellArea...)
+
+	return data
+
+}
+
+func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData *PageParsed) []byte {
 	//This should be read from the page
 	currentNumberOfCell := 0
 	currentCellStart := PageSize

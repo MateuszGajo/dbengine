@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) {
+func (server ServerStruct) handleCreateTableSqlQuery(parsedData PageParsed, parsedQuery []ParsedValue, input string) {
 	// parse query lets assume output bellow
 	createSqlQueryData := parseCreateTableQuery(parsedQuery, input)
 
@@ -33,15 +33,15 @@ func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedVa
 	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
 	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, &parsedData)
 	// Zeros data
-	zerosLength := PageSize - len(parsedData.dbHeader) - len(btreeHeader) - len(allCells)
+	zerosLength := PageSize - parsedData.dbHeaderSize - len(btreeHeader) - len(allCells)
 	zerosSpace := make([]byte, zerosLength)
 	//General method to save the daata to disk i guess
-	dataToSave := parsedData.dbHeader
+	dataToSave := assembleDbHeader(parsedData.dbHeader)
 	dataToSave = append(dataToSave, btreeHeader...)
 	dataToSave = append(dataToSave, zerosSpace...)
 	dataToSave = append(dataToSave, allCells...)
 
-	writeToFile(dataToSave, 0)
+	writeToFile(dataToSave, 0, server.firstPage)
 
 	btreeHeaderForData := BtreeHeaderSchema(TableBtreeLeafCell, CreateCell{dataLength: 0, data: []byte{}}, nil)
 	zerosLength = PageSize - len(btreeHeaderForData)
@@ -50,11 +50,11 @@ func handleCreateTableSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedVa
 	emptyDataPage := btreeHeaderForData
 	emptyDataPage = append(emptyDataPage, zerosSpace...)
 
-	writeToFile(emptyDataPage, pointerInSchemaToData-1)
+	writeToFile(emptyDataPage, pointerInSchemaToData-1, server.firstPage)
 
 }
 
-func handleCreaqteSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) {
+func (server ServerStruct) handleCreaqteSqlQuery(parsedData PageParsed, parsedQuery []ParsedValue, input string) {
 
 	if len(parsedQuery) < 2 {
 		fmt.Printf("%+v", parsedQuery)
@@ -63,7 +63,7 @@ func handleCreaqteSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue,
 
 	switch SQLCreateQueryObjectType(strings.ToLower(parsedQuery[1].data)) {
 	case SqlQueryTableObjectType:
-		handleCreateTableSqlQuery(parsedData, parsedQuery, input)
+		server.handleCreateTableSqlQuery(parsedData, parsedQuery, input)
 	default:
 		panic("Object type not implement: " + parsedQuery[1].data)
 	}
@@ -71,7 +71,7 @@ func handleCreaqteSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue,
 
 // insert into user(name) values('Alice')
 
-func findTableNameInSchemaPage(page LastPageParsed, value string) []PageParseColumn {
+func findTableNameInSchemaPage(page PageParsed, value string) []PageParseColumn {
 	// ``````````````````````````````````
 	// ``````````````````````````````````
 	// ``````````````````````````````````
@@ -107,7 +107,7 @@ func findTableNameInSchemaPage(page LastPageParsed, value string) []PageParseCol
 		// fmt.Println(latestRowHeaders)
 		// fmt.Println("row valyes")
 		// fmt.Println(string(latestRowValues))
-
+		fmt.Println("parse column, find table name in schema page")
 		var rowColumns []PageParseColumn = parseDbPageColumn(latestRowHeaders, latestRowValues)
 
 		if reflect.DeepEqual(rowColumns[1].columnValue, []byte(value)) {
@@ -129,7 +129,7 @@ func validateData(validator string, data string) bool {
 	}
 }
 
-func handleInsertSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, input string) []byte {
+func (server ServerStruct) handleInsertSqlQuery(parsedData PageParsed, parsedQuery []ParsedValue, input string) []byte {
 	if strings.ToLower(parsedQuery[1].data) != validInsertObjectType {
 		panic("expected " + validInsertObjectType + " got " + parsedQuery[1].data)
 	}
@@ -139,6 +139,8 @@ func handleInsertSqlQuery(parsedData LastPageParsed, parsedQuery []ParsedValue, 
 
 	fmt.Println("that is intresting me")
 	fmt.Println(parsedQuery[2].data)
+	fmt.Println("parsed data")
+	fmt.Printf("%+v \n", parsedData)
 	res := findTableNameInSchemaPage(parsedData, parsedQuery[2].data)
 	fmt.Println("did we found schema, yes")
 	fmt.Println(res)
@@ -207,8 +209,9 @@ mainloop:
 	fmt.Println("passed validation")
 	fmt.Println("values to write")
 	fmt.Println(dataToWrite...)
-	parsedData = LastPageParsed{
-		dbHeader:             []byte{},
+	parsedData = PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
 		btreeType:            int(TableBtreeLeafCell),
 		freeBlock:            0,
 		numberofCells:        0,
@@ -248,12 +251,12 @@ mainloop:
 	// fmt.Println(dataToSave)
 	fmt.Println(len(dataToSave))
 
-	writeToFile(dataToSave, int(dataPage[0])-1)
+	writeToFile(dataToSave, int(dataPage[0])-1, parsedData)
 
 	return []byte{}
 }
 
-func handleActionType(parsedQuery []ParsedValue, input string, parsedData LastPageParsed) {
+func (server ServerStruct) handleActionType(parsedQuery []ParsedValue, input string, parsedData PageParsed) {
 
 	if len(parsedQuery) < 1 {
 		fmt.Printf("%+v", parsedQuery)
@@ -263,9 +266,9 @@ func handleActionType(parsedQuery []ParsedValue, input string, parsedData LastPa
 	switch SQLQueryActionType(strings.ToLower(parsedQuery[0].data)) {
 	case SqlQueryCreateActionType:
 
-		handleCreaqteSqlQuery(parsedData, parsedQuery, input)
+		server.handleCreaqteSqlQuery(parsedData, parsedQuery, input)
 	case SqlQueryInsertActionType:
-		handleInsertSqlQuery(parsedData, parsedQuery, input)
+		server.handleInsertSqlQuery(parsedData, parsedQuery, input)
 	default:
 		panic("Unsported sql query type: " + parsedQuery[0].data)
 	}
