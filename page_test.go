@@ -4,7 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/fs"
+	"math"
+	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -319,5 +322,116 @@ func TestAssembleHeader(t *testing.T) {
 	if !reflect.DeepEqual(dbHeader, parseHeader) {
 		t.Errorf("Header are different, expected: %v, got %v", dbHeader, parseHeader)
 	}
+
+}
+
+func TestReadSharedLock(t *testing.T) {
+	sleepTimeMs := 15
+	server := ServerStruct{
+		readInternal: func(pageNumber int) ([]byte, os.FileInfo) {
+			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
+			return []byte("mock data"), MockFileInfo{}
+		},
+	}
+
+	var wg sync.WaitGroup
+	readTime := map[int]int64{}
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		time.Sleep(1 * time.Millisecond)
+
+		go func(id int) {
+			defer wg.Done()
+			server.readDbPage(1)
+			readTime[id] = time.Now().UnixMilli()
+		}(i)
+	}
+
+	wg.Wait()
+
+	fmt.Printf("%+v", readTime)
+	maxVal := math.Max(float64(readTime[0]), float64(readTime[1]))
+	minVal := math.Min(float64(readTime[1]), float64(readTime[0]))
+
+	if maxVal-minVal > float64(sleepTimeMs-1) {
+		t.Errorf("Execution should be conncurent, the second one should wait less than 15 miliscond (-1 ms for error margin) to finish after first one, we waited: %f", maxVal-minVal)
+	}
+}
+
+func TestWriteExclusiveLockConcurrentWrite(t *testing.T) {
+	sleepTimeMs := 15
+	server := ServerStruct{
+		writeToFileRaw: func(data []byte, page int) {
+			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
+		},
+	}
+
+	var wg sync.WaitGroup
+	readTime := map[int]int64{}
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		time.Sleep(1 * time.Millisecond)
+
+		go func(id int) {
+			defer wg.Done()
+			server.writeToFile([]byte{}, 1, PageParsed{dbHeader: DbHeader{fileChangeCounter: 1}}, "12")
+			readTime[id] = time.Now().UnixMilli()
+		}(i)
+	}
+
+	wg.Wait()
+
+	maxVal := math.Max(float64(readTime[0]), float64(readTime[1]))
+	minVal := math.Min(float64(readTime[1]), float64(readTime[0]))
+
+	if maxVal-minVal < float64(sleepTimeMs) {
+		t.Errorf("Exclusive lock can't write concurrently, expected to wait at least 15, instead we waited: %f", maxVal-minVal)
+	}
+
+	fmt.Println("we waited")
+	fmt.Println(maxVal - minVal)
+
+}
+
+func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
+	sleepTimeMs := 15
+	server := ServerStruct{
+		writeToFileRaw: func(data []byte, page int) {
+			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
+		},
+		readInternal: func(pageNumber int) ([]byte, os.FileInfo) {
+			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
+			return []byte("mock data"), MockFileInfo{}
+		},
+	}
+
+	var wg sync.WaitGroup
+	readTime := map[int]int64{}
+	wg.Add(1)
+
+	go func(id int) {
+		defer wg.Done()
+		server.writeToFile([]byte{}, 1, PageParsed{dbHeader: DbHeader{fileChangeCounter: 1}}, "12")
+		readTime[id] = time.Now().UnixMilli()
+	}(1)
+
+	go func(id int) {
+		time.Sleep(1 * time.Millisecond)
+		defer wg.Done()
+		server.readDbPage(1)
+		readTime[id] = time.Now().UnixMilli()
+	}(2)
+
+	wg.Wait()
+
+	maxVal := math.Max(float64(readTime[0]), float64(readTime[1]))
+	minVal := math.Min(float64(readTime[1]), float64(readTime[0]))
+
+	if maxVal-minVal < float64(sleepTimeMs) {
+		t.Errorf("Exclusive lock can't write and read concurrently, expected to wait at least 15, instead we waited: %f", maxVal-minVal)
+	}
+
+	fmt.Println("we waited")
+	fmt.Println(maxVal - minVal)
 
 }

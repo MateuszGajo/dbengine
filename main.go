@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"io/fs"
 	"os"
 )
 
@@ -115,15 +117,20 @@ func BtreeHeaderValue() []byte {
 	return data
 }
 
-func writeToFile(data []byte, page int, firstPage PageParsed) {
-	writeToFileRaw(data, page)
+// Maybe lets create diffrent struct as READER/WRITER don't know
+func (serverData *ServerStruct) writeToFile(data []byte, page int, firstPage PageParsed, conId string) {
+	lockMutex.Lock()
+	lockTypeExclusive = &conId
+	serverData.writeToFileRaw(data, page)
 	if page == 0 {
 		return
 	}
 	firstPage.dbHeader.fileChangeCounter++
 
 	assembledPage := assembleDbPage(firstPage)
-	writeToFileRaw(assembledPage, 0)
+	serverData.writeToFileRaw(assembledPage, 0)
+	lockTypeExclusive = nil
+	lockMutex.Unlock()
 
 }
 
@@ -150,7 +157,7 @@ type BtreeType int
 
 const (
 	TableBtreeLeafCell     BtreeType = 0x0d
-	TableBtreeInteriorCell BtreeType = 0x5
+	TableBtreeInteriorCell BtreeType = 0x05
 	IndexBtreeLeafCell     BtreeType = 0x0a
 	IndexBtreeInteriorCell BtreeType = 0x02
 )
@@ -333,16 +340,16 @@ func parseStartQuery(input string) []string {
 
 // WE need to have some locking, lets do for bow exclusive lock only
 
-type LockType string
+// type LockType string
 
-const (
-	LockTypeExclusive = "ExclusiveLockType"
-)
+// const (
+// 	LockTypeExclusive = "ExclusiveLockType"
+// )
 
-// sqlite stores lock in db i think
-var locks = map[LockType][]string{
-	LockTypeExclusive: []string{},
-} //
+// // sqlite stores lock in db i think
+// var locks = map[LockType]*string{
+// 	LockTypeExclusive: nil,
+// } //
 
 // Shared lock allow multiple select to read data but block writer, write can use WAL to save data without interuption
 
@@ -361,20 +368,38 @@ var locks = map[LockType][]string{
 // 2 While reading data check for lock
 // 3 while inserting check for lock, in case data has changed need to retry logic
 
+func pseudo_uuid() (uuid string) {
+
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+
+	uuid = fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+
+	return
+}
+
 func exectueCommand(input string, pNumber int) {
 	// res := parseStartQuery(input)
 	fmt.Println("run generic parser")
 	_, parsedQuery := genericParser(input)
 
+	server := ServerStruct{
+		pageSize:       PageSize,
+		conId:          pseudo_uuid(),
+		readInternal:   readInternal,
+		writeToFileRaw: writeToFileRaw,
+	}
+
 	// We always need to rage page 0
-	data, fileInfo := readDbPage(0)
+	data, fileInfo := server.readDbPage(0)
 
 	parsedData := parseReadPage(data, 0, fileInfo)
 
-	server := ServerStruct{
-		firstPage: parsedData,
-		pageSize:  PageSize,
-	}
+	server.firstPage = parsedData
 
 	// fmt.Println("parsed last page")
 	// fmt.Printf("%+v", parsedData)
@@ -384,8 +409,11 @@ func exectueCommand(input string, pNumber int) {
 }
 
 type ServerStruct struct {
-	firstPage PageParsed
-	pageSize  int
+	firstPage      PageParsed
+	pageSize       int
+	conId          string
+	readInternal   func(pageNumber int) ([]byte, fs.FileInfo)
+	writeToFileRaw func(data []byte, page int)
 }
 
 func main() {

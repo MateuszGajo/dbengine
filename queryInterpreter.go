@@ -41,7 +41,7 @@ func (server ServerStruct) handleCreateTableSqlQuery(parsedData PageParsed, pars
 	dataToSave = append(dataToSave, zerosSpace...)
 	dataToSave = append(dataToSave, allCells...)
 
-	writeToFile(dataToSave, 0, server.firstPage)
+	server.writeToFile(dataToSave, 0, server.firstPage, server.conId)
 
 	btreeHeaderForData := BtreeHeaderSchema(TableBtreeLeafCell, CreateCell{dataLength: 0, data: []byte{}}, nil)
 	zerosLength = PageSize - len(btreeHeaderForData)
@@ -50,7 +50,7 @@ func (server ServerStruct) handleCreateTableSqlQuery(parsedData PageParsed, pars
 	emptyDataPage := btreeHeaderForData
 	emptyDataPage = append(emptyDataPage, zerosSpace...)
 
-	writeToFile(emptyDataPage, pointerInSchemaToData-1, server.firstPage)
+	server.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.firstPage, server.conId)
 
 }
 
@@ -251,7 +251,7 @@ mainloop:
 	// fmt.Println(dataToSave)
 	fmt.Println(len(dataToSave))
 
-	writeToFile(dataToSave, int(dataPage[0])-1, parsedData)
+	server.writeToFile(dataToSave, int(dataPage[0])-1, parsedData, server.conId)
 
 	return []byte{}
 }

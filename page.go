@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
+	"sync"
 )
 
 // ````````````````````````````
@@ -247,7 +248,27 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 	return rowColumn
 }
 
-func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
+var (
+	lockTypeExclusive *string = nil
+	lockMutex         sync.RWMutex
+	sharedLock        map[string]struct{} = map[string]struct{}{}
+)
+
+// hmmm how to do shared lock
+
+func (server *ServerStruct) readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
+	lockMutex.RLock()
+	sharedLock[server.conId] = struct{}{}
+
+	page, info := server.readInternal(pageNumber)
+
+	delete(sharedLock, server.conId)
+	lockMutex.RUnlock()
+	return page, info
+}
+
+func readInternal(pageNumber int) ([]byte, fs.FileInfo) {
+	// err, ok := locks[LockTypeExclusive]
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -256,7 +277,7 @@ func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
 	if _, err := os.Stat(pwd + "/aa.db"); os.IsNotExist(err) {
 		return []byte{}, nil
 	}
-	fd, err := os.Open(pwd + "/aa.db") // Adjust path as needed
+	fd, err := os.Open(pwd + "/aa.db")
 	if err != nil {
 		panic(err)
 	}
@@ -264,9 +285,9 @@ func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
 
 	fd.Seek(int64(pageNumber)*int64(PageSize), 0)
 
-	buff := make([]byte, PageSize) // Create a buffer for 1024 bytes
+	buff := make([]byte, PageSize)
 	n, err := io.ReadFull(fd, buff)
-	if err != nil && err != io.EOF { // Handle EOF and other errors
+	if err != nil && err != io.EOF {
 		fmt.Println("Error reading file:", err)
 		return nil, nil
 	}
@@ -279,7 +300,7 @@ func readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
 	fmt.Println("size")
 	fmt.Println(fileInfo.Size())
 
-	return buff[:n], fileInfo // Return the bytes actually read
+	return buff[:n], fileInfo
 }
 
 func parseDbHeader(data []byte) DbHeader {
