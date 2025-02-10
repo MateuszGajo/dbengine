@@ -4,6 +4,30 @@ import (
 	"strings"
 )
 
+// insert into user(name) values('Alice')
+var allowedQueryOperators = map[rune]struct{}{
+	'>': {},
+	'*': {},
+	'<': {},
+	'-': {},
+	'=': {},
+}
+
+type ParsedDataType string
+
+const (
+	ParsedDataTypeBracket     ParsedDataType = "ParsedDataTypeBracket"
+	ParsedDataTypeOperator    ParsedDataType = "ParsedDataTypeOperator"
+	ParsedDataTypeSimpleValue ParsedDataType = "ParsedDataTypesSimpleValue"
+	ParsedDataTypeSeparator   ParsedDataType = "ParsedDataTypesSeparator"
+)
+
+type ParsedValue struct {
+	dataType   ParsedDataType
+	data       string
+	dataNested []ParsedValue
+}
+
 func parseSqlQueryColumnAttributes(parsedQuery ParsedValue) []SQLQueryColumnConstrains {
 	columnConstrains := []SQLQueryColumnConstrains{}
 	columnConstrain := SQLQueryColumnConstrains{}
@@ -59,30 +83,6 @@ func parseCreateTableQuery(parsedQuery []ParsedValue, input string) CreateAction
 	res.columns = parseSqlQueryColumnAttributes(parsedQuery[3])
 
 	return res
-}
-
-// insert into user(name) values('Alice')
-var allowedQueryOperators = map[rune]struct{}{
-	'>': {},
-	'*': {},
-	'<': {},
-	'-': {},
-	'=': {},
-}
-
-type ParsedDataType string
-
-const (
-	ParsedDataTypeBracket     ParsedDataType = "ParsedDataTypeBracket"
-	ParsedDataTypeOperator    ParsedDataType = "ParsedDataTypeOperator"
-	ParsedDataTypeSimpleValue ParsedDataType = "ParsedDataTypesSimpleValue"
-	ParsedDataTypeSeparator   ParsedDataType = "ParsedDataTypesSeparator"
-)
-
-type ParsedValue struct {
-	dataType   ParsedDataType
-	data       string
-	dataNested []ParsedValue
 }
 
 func genericParser(input string) (int, []ParsedValue) {
