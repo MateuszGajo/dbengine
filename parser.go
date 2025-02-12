@@ -3,9 +3,75 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"io/fs"
 	"strconv"
 )
+
+type SQLQueryColumnAttribute string
+
+const (
+	SQLQueryColumnAttributePrimaryKey SQLQueryColumnAttribute = "PRIMARY KEY"
+	SQLQueryColumnAttributeForeignKey SQLQueryColumnAttribute = "FOREIGN KEY"
+	SQLQueryColumnAttributeUniuq      SQLQueryColumnAttribute = "UNIQUE"
+	SQLQueryColumnAttributeNotNull    SQLQueryColumnAttribute = "NOT NULL"
+	SQLQueryColumnAttributeIndex      SQLQueryColumnAttribute = "INDEX"
+	// TODO: fill it
+)
+
+var sqlQueryAllowedColumnAttributes = map[SQLQueryColumnAttribute]struct{}{
+	SQLQueryColumnAttributeForeignKey: {},
+	SQLQueryColumnAttributePrimaryKey: {},
+	SQLQueryColumnAttributeUniuq:      {},
+	SQLQueryColumnAttributeNotNull:    {},
+	SQLQueryColumnAttributeIndex:      {},
+	// TODO: fill it after const
+}
+
+type SQLQueryColumnType string
+
+const (
+	SQLQueryColumnTypeInteger SQLQueryColumnType = "INTEGER"
+	SQLQueryColumnTypeText    SQLQueryColumnType = "TEXT"
+	// TODO: fill it
+)
+
+var sqlQueryAllowedColumnType = map[SQLQueryColumnType]struct{}{
+	SQLQueryColumnTypeInteger: {},
+	SQLQueryColumnTypeText:    {},
+}
+
+type CreateActionQueryData struct {
+	action     SQLQueryActionType
+	objectType SQLCreateQueryObjectType
+	entityName string
+	columns    []SQLQueryColumnConstrains
+	rawQuery   string
+}
+
+type PageParsed struct {
+	dbHeader             DbHeader // only for first page
+	dbHeaderSize         int
+	btreeType            int
+	freeBlock            int
+	numberofCells        int
+	startCellContentArea int
+	framgenetedArea      int
+	rightMostpointer     []byte
+	pointers             []byte
+	cellArea             []byte
+	latesRow             *LastPageParseLatestRow
+}
+
+type PageParseColumn struct {
+	columnType   string
+	columnLength int
+	columnValue  []byte
+}
+
+type LastPageParseLatestRow struct {
+	rowId   int
+	data    []byte
+	columns []PageParseColumn
+}
 
 func parseDbHeader(data []byte) DbHeader {
 	if len(data) != 100 {
@@ -123,7 +189,7 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 	return rowColumn
 }
 
-func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
+func parseReadPage(data []byte, dbPage int) PageParsed {
 	fmt.Println("parse read page execution time?")
 	fmt.Println(dbPage)
 	// fmt.Println(data)
@@ -140,9 +206,6 @@ func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
 				data:    []byte{},
 				columns: []PageParseColumn{},
 			},
-			dbInfo: DbInfo{
-				pageNumber: 0,
-			},
 		}
 	}
 
@@ -151,10 +214,12 @@ func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
 	}
 	dataToParse := data
 	var dbHeader DbHeader
+	var dbHeaderSize int = 0
 	if dbPage == 0 {
 		//Skip header for now
 		dataToParse = dataToParse[100:]
 		dbHeader = parseDbHeader(data[:100])
+		dbHeaderSize = 100
 	}
 
 	btreeType := dataToParse[0]
@@ -210,11 +275,18 @@ func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
 	if len(data) < int(startCellContentAreaBigEndian) {
 		panic("data length is lesser than start of cell content area")
 	}
+	cellAreaContent := []byte{}
+	if startCellContentAreaBigEndian != 0 {
+		// 0 means PageSize, no data
+		cellAreaContent = data[startCellContentAreaBigEndian:]
+	}
 
-	cellAreaContent := data[startCellContentAreaBigEndian:]
 	latestRowHeaders := []byte{}
 	latestRowValues := []byte{}
 	var latestRow LastPageParseLatestRow
+
+	fmt.Println("what we have as cell area content")
+	fmt.Println(cellAreaContent)
 
 	if len(cellAreaContent) > 0 {
 		latestRowLength := int(cellAreaContent[0]) + 2
@@ -258,6 +330,7 @@ func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
 
 	return PageParsed{
 		dbHeader:             dbHeader,
+		dbHeaderSize:         dbHeaderSize,
 		btreeType:            int(btreeType),
 		numberofCells:        numberofCellsInt,
 		startCellContentArea: int(startCellContentAreaInt),
@@ -267,8 +340,5 @@ func parseReadPage(data []byte, dbPage int, fileInfo fs.FileInfo) PageParsed {
 		freeBlock:            int(freeBlocksInt),
 		pointers:             pointers,
 		latesRow:             &latestRow,
-		dbInfo: DbInfo{
-			pageNumber: int(fileInfo.Size() / int64(PageSize)),
-		},
 	}
 }

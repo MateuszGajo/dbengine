@@ -120,8 +120,9 @@ func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
 	var wg sync.WaitGroup
 	readTime := map[int]int64{}
 	wg.Add(1)
-
+	wg.Add(1)
 	go func(id int) {
+
 		defer wg.Done()
 		writer.writeToFile([]byte{}, 1, PageParsed{}, "conId")
 		readTime[id] = time.Now().UnixMilli()
@@ -140,7 +141,7 @@ func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
 	minVal := math.Min(float64(readTime[1]), float64(readTime[0]))
 
 	if maxVal-minVal < float64(sleepTimeMs) {
-		t.Errorf("Exclusive lock can't write and read concurrently, expected to wait at least 15, instead we waited: %f", maxVal-minVal)
+		t.Errorf("Exclusive lock can't write and read concurrently, expected to wait at least 15, instead we waited: %v", maxVal-minVal)
 	}
 
 	fmt.Println("we waited")

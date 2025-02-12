@@ -17,7 +17,7 @@ func TestAssemblePage(t *testing.T) {
 	data = append(data, btreeHeader...)
 	data = append(data, zeros...)
 	data = append(data, cells.data...)
-	res := parseReadPage(data, 1, MockFileInfo{SizeVal: 10})
+	res := parseReadPage(data, 1)
 
 	assembledPage := assembleDbPage(res)
 

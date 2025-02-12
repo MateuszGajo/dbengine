@@ -11,13 +11,16 @@ type WriterStruct struct {
 	writeToFileRaw func(data []byte, page int) error
 }
 
-// LEts think how to structure this
-
 func NewWriter() *WriterStruct {
 	return &WriterStruct{retry: 0, writeToFileRaw: writeToFileRaw}
 }
 
+// Action plan:
+// TOOD: handle retry logic for old data
+
 func (writer WriterStruct) writeToFile(data []byte, page int, firstPage PageParsed, conId string) {
+
+	writer.WriteToFileWithRetry(data, page, conId)
 
 	if page == 0 {
 		return
@@ -25,6 +28,8 @@ func (writer WriterStruct) writeToFile(data []byte, page int, firstPage PagePars
 	firstPage.dbHeader.fileChangeCounter++
 
 	assembledPage := assembleDbPage(firstPage)
+	fmt.Println("save number 2, assembler page")
+	fmt.Println(assembledPage)
 	writer.WriteToFileWithRetry(assembledPage, 0, conId)
 
 }

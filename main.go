@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"sync"
 )
 
@@ -45,34 +44,6 @@ var (
 
 // Maybe lets create diffrent struct as READER/WRITER don't know
 
-type BtreeType int
-
-const (
-	TableBtreeLeafCell     BtreeType = 0x0d
-	TableBtreeInteriorCell BtreeType = 0x05
-	IndexBtreeLeafCell     BtreeType = 0x0a
-	IndexBtreeInteriorCell BtreeType = 0x02
-)
-
-type QueryType string
-
-const (
-	QueryTypeTable QueryType = "table"
-	QueryTypeIndex QueryType = "index"
-)
-
-type PageParseColumn struct {
-	columnType   string
-	columnLength int
-	columnValue  []byte
-}
-
-type LastPageParseLatestRow struct {
-	rowId   int
-	data    []byte
-	columns []PageParseColumn
-}
-
 type DbInfo struct {
 	pageNumber int
 }
@@ -103,155 +74,54 @@ type DbHeader struct {
 	sqlVersionNumber           []byte
 }
 
-type PageParsed struct {
-	dbHeader             DbHeader // only for first page
-	dbHeaderSize         int
-	btreeType            int
-	freeBlock            int
-	numberofCells        int
-	startCellContentArea int
-	framgenetedArea      int
-	rightMostpointer     []byte
-	pointers             []byte
-	cellArea             []byte
-	latesRow             *LastPageParseLatestRow
-	dbInfo               DbInfo
-}
-
-type SQLQueryActionType string
-
-const (
-	SqlQueryCreateActionType SQLQueryActionType = "create"
-	SqlQueryInsertActionType SQLQueryActionType = "insert"
-
-	//TODO: fill them
-)
-
-var validQueryActionTypes = map[SQLQueryActionType]struct{}{
-	SqlQueryCreateActionType: {},
-	SqlQueryInsertActionType: {},
-}
-
-type SQLCreateQueryObjectType string
-
-const (
-	SqlQueryDatabaseObjectType SQLCreateQueryObjectType = "database"
-	SqlQueryTableObjectType    SQLCreateQueryObjectType = "table"
-	SqlQueryIndexObjectType    SQLCreateQueryObjectType = "index"
-	//TODO fill them
-)
-
-var validCreateQueryObjectTypes = map[SQLCreateQueryObjectType]struct{}{
-	SqlQueryDatabaseObjectType: {},
-	SqlQueryTableObjectType:    {},
-	SqlQueryIndexObjectType:    {},
-}
-
-var validInsertObjectType = "into"
-
-type SQLQueryColumnConstrains struct {
-	columnName string
-	columnType string
-	constrains []string
-}
-
-type UserData struct {
-	input     string
-	queryData []string
-	sqlType   SQLQueryActionType
-}
-
-type CreateCell struct {
-	dataLength int
-	data       []byte
-}
-
-type SQLQueryColumnAttribute string
-
-const (
-	SQLQueryColumnAttributePrimaryKey SQLQueryColumnAttribute = "PRIMARY KEY"
-	SQLQueryColumnAttributeForeignKey SQLQueryColumnAttribute = "FOREIGN KEY"
-	SQLQueryColumnAttributeUniuq      SQLQueryColumnAttribute = "UNIQUE"
-	SQLQueryColumnAttributeNotNull    SQLQueryColumnAttribute = "NOT NULL"
-	SQLQueryColumnAttributeIndex      SQLQueryColumnAttribute = "INDEX"
-	// TODO: fill it
-)
-
-var sqlQueryAllowedColumnAttributes = map[SQLQueryColumnAttribute]struct{}{
-	SQLQueryColumnAttributeForeignKey: {},
-	SQLQueryColumnAttributePrimaryKey: {},
-	SQLQueryColumnAttributeUniuq:      {},
-	SQLQueryColumnAttributeNotNull:    {},
-	SQLQueryColumnAttributeIndex:      {},
-	// TODO: fill it after const
-}
-
-type SQLQueryColumnType string
-
-const (
-	SQLQueryColumnTypeInteger SQLQueryColumnType = "INTEGER"
-	SQLQueryColumnTypeText    SQLQueryColumnType = "TEXT"
-	// TODO: fill it
-)
-
-var sqlQueryAllowedColumnType = map[SQLQueryColumnType]struct{}{
-	SQLQueryColumnTypeInteger: {},
-	SQLQueryColumnTypeText:    {},
-}
-
-type CreateActionQueryData struct {
-	action     SQLQueryActionType
-	objectType SQLCreateQueryObjectType
-	entityName string
-	columns    []SQLQueryColumnConstrains
-	rawQuery   string
-}
-
-// WE need to have some locking, lets do for bow exclusive lock only
-
-// Exclusive lock,
-// cache is invalidated, so no one can read from page
-//generally lock are on db file not on cache used to retrive pages faster
-
-// As first implementation we can do exclusive lock, and then implement more granuall ones
-
-// WE we need to implement
-// if transaction is writing its block all other transaction
-// if we have two insert transaction and second one has stall data and tries to write stall data, it should be detected at write, and retry implement to get current data and write again
-
-// Action plan:
-// 3 while inserting check for lock, in case data has changed need to retry logic
+// ````````````````````````````
+// ````````````````````````````
+// ````````````````````````````
+// ````````TODO!!!!!!!``````
+// ````````````````````````````
+// ````````````````````````````
+// ````````````````````````````
+// 1. Error handling
+// 2. Write some e2e test
+// 2. Add data to have multiple pages, multiple pages for schema too, implement this
 
 func exectueCommand(input string, pNumber int) {
-	// res := parseStartQuery(input)
 	fmt.Println("run generic parser")
 	_, parsedQuery := genericParser(input)
 
 	server := ServerStruct{
-		pageSize:     PageSize,
-		conId:        pseudo_uuid(),
-		readInternal: readInternal,
+		pageSize: PageSize,
+		conId:    pseudo_uuid(),
+		dbInfo:   DbInfo{},
 	}
 
-	// We always need to rage page 0
 	data, fileInfo := NewReader(server.conId).readDbPage(0)
 
-	parsedData := parseReadPage(data, 0, fileInfo)
+	if fileInfo != nil {
+		server.dbInfo.pageNumber = int(fileInfo.Size() / int64(PageSize))
+	} else {
+		server.dbInfo.pageNumber = 0
+	}
+
+	parsedData := parseReadPage(data, 0)
+
+	fmt.Println("first page readed")
+	fmt.Printf("%+v", parsedData)
 
 	server.firstPage = parsedData
 
-	// fmt.Println("parsed last page")
-	// fmt.Printf("%+v", parsedData)
+	err := server.handleActionType(parsedQuery, input, parsedData)
 
-	server.handleActionType(parsedQuery, input, parsedData)
-
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 type ServerStruct struct {
-	firstPage    PageParsed
-	pageSize     int
-	conId        string
-	readInternal func(pageNumber int) ([]byte, fs.FileInfo)
+	firstPage PageParsed
+	pageSize  int
+	conId     string
+	dbInfo    DbInfo
 }
 
 func main() {
@@ -260,8 +130,8 @@ func main() {
 	exectueCommand(input, 0)
 	// writeExtraPageTMP()
 
-	// input = "INSERT INTO user (name) values('Alice')"
-	// exectueCommand(input, 2)
+	input = "INSERT INTO user (name) values('Alice')"
+	exectueCommand(input, 2)
 
 	//
 

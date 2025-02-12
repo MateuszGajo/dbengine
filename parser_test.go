@@ -11,7 +11,7 @@ func TestParseDbPageWithOnlyHeader(t *testing.T) {
 	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, CreateCell{dataLength: 0}, nil)
 	zeros := make([]byte, PageSize-len(btreeHeader))
 	data := append(btreeHeader, zeros...)
-	res := parseReadPage(data, 1, MockFileInfo{SizeVal: 10})
+	res := parseReadPage(data, 1)
 
 	if res.btreeType != int(TableBtreeLeafCell) {
 		t.Errorf("Expected: %v tree type, insted we got: %v", TableBtreeLeafCell, res.btreeType)
@@ -46,7 +46,7 @@ func TestParseDbPage(t *testing.T) {
 	data = append(data, btreeHeader...)
 	data = append(data, zeros...)
 	data = append(data, cells.data...)
-	res := parseReadPage(data, 1, MockFileInfo{SizeVal: 10})
+	res := parseReadPage(data, 1)
 	fmt.Println("after all?")
 
 	if res.btreeType != int(TableBtreeLeafCell) {

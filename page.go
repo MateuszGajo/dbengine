@@ -7,15 +7,6 @@ import (
 	"os"
 )
 
-// ````````````````````````````
-// ````````````````````````````
-// ````````````````````````````
-// ````````TODO!!!!!!!``````
-// ````````````````````````````
-// ````````````````````````````
-// ````````````````````````````
-// 3. Add data to have multiple pages, multiple pages for schema too, implement this
-
 type PageReader struct {
 	readInternal func(pageNumber int) ([]byte, fs.FileInfo)
 	conId        string

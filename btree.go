@@ -6,6 +6,20 @@ import (
 	"os"
 )
 
+type CreateCell struct {
+	dataLength int
+	data       []byte
+}
+
+type BtreeType int
+
+const (
+	TableBtreeLeafCell     BtreeType = 0x0d
+	TableBtreeInteriorCell BtreeType = 0x05
+	IndexBtreeLeafCell     BtreeType = 0x0a
+	IndexBtreeInteriorCell BtreeType = 0x02
+)
+
 func BtreeHeaderSchema(btreeType BtreeType, cell CreateCell, parsedData *PageParsed) []byte {
 	//This should be read from the page
 	currentNumberOfCell := 0
@@ -119,7 +133,7 @@ func createCell(btreeType BtreeType, latestRow *PageParsed, values ...interface{
 
 func header() DbHeader {
 	headerString := []byte("SQLite format 3\000")
-	pageSize := 2
+	pageSize := PageSize
 	writeFileVersion := intToBinary(LegacyFileWriteFormat, 1)
 	readFileVersion := intToBinary(LegacyFileReadFormat, 1)
 	// SQLite has the ability to set aside a small number of extra bytes at the end of every page for use by extensions. These extra bytes are used, for example, by the SQLite Encryption Extension to store a nonce and/or cryptographic checksum associated with each page. The "reserved space" size in the 1-byte integer at offset 20 is the number of bytes of space at the end of each page to reserve for extensions. This value is usually 0. The value can be odd.
@@ -129,7 +143,7 @@ func header() DbHeader {
 	//The maximum and minimum embedded payload fractions and the leaf payload fraction values must be 64, 32, and 32. These values were originally intended to be tunable parameters that could be used to modify the storage format of the b-tree algorithm. However, that functionality is not supported and there are no current plans to add support in the future. Hence, these three bytes are fixed at the values specified.
 	leafPayloadFranction := intToBinary(32, 1)
 	// The file change counter is a 4-byte big-endian integer at offset 24 that is incremented whenever the database file is unlocked after having been modified. When two or more processes are reading the same database file, each process can detect database changes from other processes by monitoring the change counter. A process will normally want to flush its database page cache when another process modified the database, since the cache has become stale. The file change counter facilitates this.
-	fileChangeCounter := 1
+	fileChangeCounter := 0
 	sizeOfDataBaseInPages := 2
 	// 1 page for schemas, 2 page for values
 	// END of 0000001
@@ -178,7 +192,7 @@ func header() DbHeader {
 	// Other schema-altering operations occur.
 	// we added one table
 	// TODO: this need to be updated????
-	versionValidForNumber := 1
+	versionValidForNumber := 2
 	// end of 0000005
 	versionNumber := intToBinary(3045001, 4)
 

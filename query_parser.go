@@ -28,6 +28,12 @@ type ParsedValue struct {
 	dataNested []ParsedValue
 }
 
+type SQLQueryColumnConstrains struct {
+	columnName string
+	columnType string
+	constrains []string
+}
+
 func parseSqlQueryColumnAttributes(parsedQuery ParsedValue) []SQLQueryColumnConstrains {
 	columnConstrains := []SQLQueryColumnConstrains{}
 	columnConstrain := SQLQueryColumnConstrains{}
