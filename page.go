@@ -8,39 +8,41 @@ import (
 )
 
 type PageReader struct {
-	readInternal func(pageNumber int) ([]byte, fs.FileInfo)
+	readInternal func(pageNumber int, dbName string) []byte
 	conId        string
+	dbName       string
 }
 
 func NewReader(conId string) *PageReader {
 	return &PageReader{
 		readInternal: readInternal,
 		conId:        conId,
+		dbName:       dbName,
 	}
 }
 
-func (reader PageReader) readDbPage(pageNumber int) ([]byte, fs.FileInfo) {
+func (reader PageReader) readDbPage(pageNumber int) []byte {
 	lockMutex.RLock()
 	sharedLock[reader.conId] = struct{}{}
 
-	page, info := reader.readInternal(pageNumber)
+	page := reader.readInternal(pageNumber, reader.dbName)
 
 	delete(sharedLock, reader.conId)
 	lockMutex.RUnlock()
-	return page, info
+	return page
 }
 
-func readInternal(pageNumber int) ([]byte, fs.FileInfo) {
+func readInternal(pageNumber int, dbName string) []byte {
 	// err, ok := locks[LockTypeExclusive]
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
 
-	if _, err := os.Stat(pwd + "/aa.db"); os.IsNotExist(err) {
-		return []byte{}, nil
+	if _, err := os.Stat(pwd + "/" + dbName + ".db"); os.IsNotExist(err) {
+		return []byte{}
 	}
-	fd, err := os.Open(pwd + "/aa.db")
+	fd, err := os.Open(pwd + "/" + dbName + ".db")
 	if err != nil {
 		panic(err)
 	}
@@ -52,16 +54,32 @@ func readInternal(pageNumber int) ([]byte, fs.FileInfo) {
 	n, err := io.ReadFull(fd, buff)
 	if err != nil && err != io.EOF {
 		fmt.Println("Error reading file:", err)
-		return nil, nil
+		return nil
 	}
+
+	return buff[:n]
+}
+
+func (reader PageReader) readInternalFileInfo() fs.FileInfo {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := os.Stat(pwd + "/" + reader.dbName + ".db"); os.IsNotExist(err) {
+		return nil
+	}
+	fd, err := os.Open(pwd + "/" + reader.dbName + ".db")
+	if err != nil {
+		panic(err)
+	}
+	defer fd.Close()
 
 	fileInfo, err := fd.Stat()
 	if err != nil || fileInfo == nil {
 
 		panic("Error while getting information about file")
 	}
-	fmt.Println("size")
-	fmt.Println(fileInfo.Size())
 
-	return buff[:n], fileInfo
+	return fileInfo
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -105,7 +104,6 @@ func TestParseColumnAttributes(t *testing.T) {
 	input := "CREATE TABLE user(id INTEGER PRIMARY KEY, name TEXT)"
 	_, data := genericParser(input)
 
-	fmt.Println(data)
 	parsedColumns := parseSqlQueryColumnAttributes(data[3])
 
 	if parsedColumns[0].columnName != "id" {

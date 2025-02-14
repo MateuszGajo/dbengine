@@ -10,9 +10,7 @@ func TestAssemblePage(t *testing.T) {
 
 	data := []byte{}
 	cells := createCell(TableBtreeLeafCell, nil, "alice", nil)
-	fmt.Println("after creating a cell")
 	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cells, nil)
-	fmt.Println("after btree header scgena")
 	zeros := make([]byte, PageSize-len(btreeHeader)-len(cells.data))
 	data = append(data, btreeHeader...)
 	data = append(data, zeros...)

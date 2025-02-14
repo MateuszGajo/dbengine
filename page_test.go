@@ -2,36 +2,19 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"math"
-	"os"
 	"sync"
 	"testing"
 	"time"
 )
 
-type MockFileInfo struct {
-	NameVal    string
-	SizeVal    int64
-	ModeVal    fs.FileMode
-	ModTimeVal time.Time
-	IsDirVal   bool
-}
-
-func (m MockFileInfo) Name() string       { return m.NameVal }
-func (m MockFileInfo) Size() int64        { return m.SizeVal }
-func (m MockFileInfo) Mode() fs.FileMode  { return m.ModeVal }
-func (m MockFileInfo) ModTime() time.Time { return m.ModTimeVal }
-func (m MockFileInfo) IsDir() bool        { return m.IsDirVal }
-func (m MockFileInfo) Sys() any           { return nil }
-
 func TestReadSharedLock(t *testing.T) {
 	sleepTimeMs := 15
 
 	reader := PageReader{
-		readInternal: func(pageNumber int) ([]byte, os.FileInfo) {
+		readInternal: func(pageNumber int, dbName string) []byte {
 			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
-			return []byte("mock data"), MockFileInfo{}
+			return []byte("mock data")
 		},
 	}
 
@@ -62,10 +45,7 @@ func TestReadSharedLock(t *testing.T) {
 func TestWriteExclusiveLockConcurrentWrite(t *testing.T) {
 	sleepTimeMs := 15
 	writer := WriterStruct{
-		writeToFileRaw: func(data []byte, page int) error {
-			fmt.Println("call raw function")
-			fmt.Println("call raw function")
-			fmt.Println("call raw function")
+		writeToFileRaw: func(data []byte, page int, dbName string) error {
 			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 
 			return nil
@@ -94,15 +74,12 @@ func TestWriteExclusiveLockConcurrentWrite(t *testing.T) {
 		t.Errorf("Exclusive lock can't write concurrently, expected to wait at least 15, instead we waited: %f", maxVal-minVal)
 	}
 
-	fmt.Println("we waited")
-	fmt.Println(maxVal - minVal)
-
 }
 
 func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
 	sleepTimeMs := 15
 	writer := WriterStruct{
-		writeToFileRaw: func(data []byte, page int) error {
+		writeToFileRaw: func(data []byte, page int, dbName string) error {
 			fmt.Println("write to file raw execute")
 			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 
@@ -111,9 +88,9 @@ func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
 	}
 
 	reader := PageReader{
-		readInternal: func(pageNumber int) ([]byte, os.FileInfo) {
+		readInternal: func(pageNumber int, dbName string) []byte {
 			time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
-			return []byte("mock data"), MockFileInfo{}
+			return []byte("mock data")
 		},
 	}
 
@@ -143,8 +120,5 @@ func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
 	if maxVal-minVal < float64(sleepTimeMs) {
 		t.Errorf("Exclusive lock can't write and read concurrently, expected to wait at least 15, instead we waited: %v", maxVal-minVal)
 	}
-
-	fmt.Println("we waited")
-	fmt.Println(maxVal - minVal)
 
 }

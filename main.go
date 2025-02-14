@@ -48,6 +48,8 @@ type DbInfo struct {
 	pageNumber int
 }
 
+var dbName = "db"
+
 type DbHeader struct {
 	headerString               []byte
 	databasePageSize           int
@@ -81,11 +83,10 @@ type DbHeader struct {
 // ````````````````````````````
 // ````````````````````````````
 // ````````````````````````````
-// 1. Error handling
-// 2. Write some e2e test
-// 2. Add data to have multiple pages, multiple pages for schema too, implement this
+// 1. Add data to have multiple pages, multiple pages for schema too, implement this
+// 2. Write more e2e test
 
-func exectueCommand(input string, pNumber int) {
+func exectueCommand(input string) {
 	fmt.Println("run generic parser")
 	_, parsedQuery := genericParser(input)
 
@@ -95,7 +96,8 @@ func exectueCommand(input string, pNumber int) {
 		dbInfo:   DbInfo{},
 	}
 
-	data, fileInfo := NewReader(server.conId).readDbPage(0)
+	data := NewReader(server.conId).readDbPage(0)
+	fileInfo := NewReader(server.conId).readInternalFileInfo()
 
 	if fileInfo != nil {
 		server.dbInfo.pageNumber = int(fileInfo.Size() / int64(PageSize))
@@ -105,12 +107,9 @@ func exectueCommand(input string, pNumber int) {
 
 	parsedData := parseReadPage(data, 0)
 
-	fmt.Println("first page readed")
-	fmt.Printf("%+v", parsedData)
-
 	server.firstPage = parsedData
 
-	err := server.handleActionType(parsedQuery, input, parsedData)
+	err := server.handleActionType(parsedQuery, input)
 
 	if err != nil {
 		fmt.Println(err)
@@ -127,12 +126,15 @@ type ServerStruct struct {
 func main() {
 
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
-	exectueCommand(input, 0)
-	// writeExtraPageTMP()
+	exectueCommand(input)
 
 	input = "INSERT INTO user (name) values('Alice')"
-	exectueCommand(input, 2)
+	exectueCommand(input)
 
-	//
+	input = "CREATE TABLE car (id INTEGER PRIMARY KEY,make TEXT)"
+	exectueCommand(input)
+
+	input = "INSERT INTO car (make) values('porsche')"
+	exectueCommand(input)
 
 }

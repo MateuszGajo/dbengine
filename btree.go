@@ -102,7 +102,6 @@ func createCell(btreeType BtreeType, latestRow *PageParsed, values ...interface{
 				columnValues = append(columnValues, []byte{}...)
 				columnLength = append(columnLength, 0)
 			default:
-				fmt.Println("hello what do we got here")
 				fmt.Fprintln(os.Stdout, []any{values}...)
 				panic("unssporrted cell type")
 			}

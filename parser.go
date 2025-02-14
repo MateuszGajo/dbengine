@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"strconv"
 )
 
@@ -129,9 +128,6 @@ func parseDbHeader(data []byte) DbHeader {
 }
 
 func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
-	fmt.Println("parse db column")
-	fmt.Println(rowHeader)
-	fmt.Println(rowValues)
 	var rowColumn []PageParseColumn
 	for _, v := range rowHeader {
 		if int(v) > 127 {
@@ -190,9 +186,6 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 }
 
 func parseReadPage(data []byte, dbPage int) PageParsed {
-	fmt.Println("parse read page execution time?")
-	fmt.Println(dbPage)
-	// fmt.Println(data)
 	if dbPage == 0 && len(data) == 0 {
 		return PageParsed{
 			dbHeader:             header(),
@@ -231,25 +224,17 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 	freebBlocks := dataToParse[1:3]
 	if freebBlocks[0] != 0 {
-		fmt.Println(freebBlocks)
 		panic("implement free blocks more than 0 cell")
 	}
 	freeBlocksInt := int(freebBlocks[1])
 	numberofCells := dataToParse[3:5]
 	if numberofCells[0] != 0 {
-		fmt.Println(numberofCells)
 		panic("implement number of cell more than 0 cell")
 	}
 
-	fmt.Println("checkpoint 1")
-
 	numberofCellsInt := int(numberofCells[1])
 	startCellContentArea := dataToParse[5:7]
-	// if startCellContentArea[0] != 0 {
-	// 	fmt.Println("start cell content area")
-	// 	fmt.Println(startCellContentArea)
-	// 	panic("implement startCellContentArea more than 0")
-	// }
+
 	startCellContentAreaInt := binary.BigEndian.Uint16(startCellContentArea)
 	startCellContentAreaBigEndian := binary.BigEndian.Uint16(startCellContentArea)
 	fragmenetedArea := dataToParse[7]
@@ -260,7 +245,6 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	} else {
 		dataToParse = dataToParse[8:]
 	}
-	fmt.Println("checkpoint 2")
 
 	var pointers []byte
 
@@ -285,12 +269,8 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	latestRowValues := []byte{}
 	var latestRow LastPageParseLatestRow
 
-	fmt.Println("what we have as cell area content")
-	fmt.Println(cellAreaContent)
-
 	if len(cellAreaContent) > 0 {
 		latestRowLength := int(cellAreaContent[0]) + 2
-		fmt.Println("latestes row length?")
 		//TOOD:  wait what why 9??? no idea, was it hardcoded?? i guess
 		var latestRowLengthArr []byte
 		for i := 0; i < latestRowLength; i++ {
@@ -299,7 +279,6 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 				break
 			}
 		}
-		fmt.Println("latestes row length? after")
 		if len(latestRowLengthArr) > 1 {
 			panic("Need to be handled later")
 		}
@@ -308,19 +287,12 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		if len(cellAreaContent) < int(latestRowLength) {
 			panic("cellAreaContent length is lesser than start of cell content area, row length%")
 		}
-		fmt.Println("checkpoint 4")
 		latestRowRaw := cellAreaContent[:latestRowLength]
-		fmt.Println("lates row")
-		fmt.Println(latestRowRaw)
 		latestRowId := latestRowRaw[1]
 		latestRowheaderLength := latestRowRaw[2]
 		latestRowHeaders = latestRowRaw[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
 		latestRowValues = latestRowRaw[3-1+int(latestRowheaderLength):]
-		fmt.Println("checkpoint 5")
-		fmt.Println(latestRowHeaders)
-		fmt.Println(latestRowValues)
 		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
-		fmt.Println("checkpoint 6")
 		latestRow = LastPageParseLatestRow{
 			rowId:   int(latestRowId),
 			data:    latestRowRaw,

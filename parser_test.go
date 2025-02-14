@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -39,15 +38,12 @@ func TestParseDbPage(t *testing.T) {
 
 	data := []byte{}
 	cells := createCell(TableBtreeLeafCell, nil, "alice", nil)
-	fmt.Println("after creating a cell")
 	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cells, nil)
-	fmt.Println("after btree header scgena")
 	zeros := make([]byte, PageSize-len(btreeHeader)-len(cells.data))
 	data = append(data, btreeHeader...)
 	data = append(data, zeros...)
 	data = append(data, cells.data...)
 	res := parseReadPage(data, 1)
-	fmt.Println("after all?")
 
 	if res.btreeType != int(TableBtreeLeafCell) {
 		t.Errorf("Expected: %v tree type, insted we got: %v", TableBtreeLeafCell, res.btreeType)
