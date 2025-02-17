@@ -70,33 +70,26 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	allCells := cell.data
 	allCells = append(allCells, server.firstPage.cellArea...)
 	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
-	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, &server.firstPage)
-	// Zeros data
-	zerosLength := PageSize - server.firstPage.dbHeaderSize - len(btreeHeader) - len(allCells)
-	zerosSpace := make([]byte, zerosLength)
-	//General method to save the daata to disk i guess
-	dataToSave := assembleDbHeader(server.firstPage.dbHeader)
-	dataToSave = append(dataToSave, btreeHeader...)
-	dataToSave = append(dataToSave, zerosSpace...)
-	dataToSave = append(dataToSave, allCells...)
-
 	writer := NewWriter()
+	reader := NewReader(server.conId)
+	if server.firstPage.btreeType == 0 {
+		server.firstPage.btreeType = int(TableBtreeLeafCell)
+	}
+	rootPage := server.updatePageRoot(&server.firstPage, 0, *reader, *writer, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointerInSchemaToData, createSqlQueryData.rawQuery)
 
-	// let think how to update server.firstPage
+	firstPage := parseReadPage(rootPage, 0)
+	server.firstPage = firstPage
+	server.firstPage.dbHeader.schemaCookie++
 
-	writer.writeToFile(dataToSave, 0, server.firstPage, server.conId)
-	dbParsed := parseReadPage(dataToSave, 0)
-
-	server.firstPage = dbParsed
-
-	btreeHeaderForData := BtreeHeaderSchema(TableBtreeLeafCell, CreateCell{dataLength: 0, data: []byte{}}, nil)
-	zerosLength = PageSize - len(btreeHeaderForData)
-	zerosSpace = make([]byte, zerosLength)
+	// Create empty page for data
+	btreeHeaderForData := updateBtreeHeaderLeafTable(CreateCell{dataLength: 0, data: []byte{}}, nil)
+	zerosLength := PageSize - len(btreeHeaderForData)
+	zerosSpace := make([]byte, zerosLength)
 
 	emptyDataPage := btreeHeaderForData
 	emptyDataPage = append(emptyDataPage, zerosSpace...)
 
-	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.firstPage, server.conId)
+	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, server.firstPage)
 
 }
 
@@ -257,27 +250,34 @@ func (server ServerStruct) handleInsertSqlQuery(parsedQuery []ParsedValue, input
 	}
 	dataToWrite, err := getColumnData(createSqlQueryData.columns, currentQueryColumns, currentQueryValues)
 
+	fmt.Println("data to write")
+	fmt.Println(dataToWrite...)
+
 	if err != nil {
 		return err
 	}
 
-	cell := createCell(TableBtreeLeafCell, nil, dataToWrite...)
-	allCells := cell.data
-	// TODO Concatenate this
-	allCells = append(allCells, []byte{}...)
+	// cell := createCell(TableBtreeLeafCell, nil, dataToWrite...)
+	// allCells := cell.data
+	// // TODO Concatenate this
+	// allCells = append(allCells, []byte{}...)
 
-	btreeHeader := BtreeHeaderSchema(TableBtreeLeafCell, cell, &parsedData)
-	zerosLength := PageSize - len(btreeHeader) - len(allCells)
-
-	zerosSpace := make([]byte, zerosLength)
-	dataToSave := []byte{}
-	dataToSave = append(dataToSave, btreeHeader...)
-	dataToSave = append(dataToSave, zerosSpace...)
-	dataToSave = append(dataToSave, allCells...)
-
+	writer := NewWriter()
+	// reader := NewReader(server.conId);
 	dataPage := res[3].columnValue
 
-	NewWriter().writeToFile(dataToSave, int(dataPage[0])-1, server.firstPage, server.conId)
+	server.updatePageRoot(&parsedData, int(dataPage[0])-1, *reader, *writer, dataToWrite...)
+
+	// btreeHeader := updatePage(TableBtreeLeafCell, cell, &parsedData)
+	// zerosLength := PageSize - len(btreeHeader) - len(allCells)
+
+	// zerosSpace := make([]byte, zerosLength)
+	// dataToSave := []byte{}
+	// dataToSave = append(dataToSave, btreeHeader...)
+	// dataToSave = append(dataToSave, zerosSpace...)
+	// dataToSave = append(dataToSave, allCells...)
+
+	// NewWriter().writeToFile(dataToSave, int(dataPage[0])-1, server.firstPage, server.conId)
 
 	return nil
 }

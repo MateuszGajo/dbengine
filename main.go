@@ -83,6 +83,7 @@ type DbHeader struct {
 // ````````````````````````````
 // ````````````````````````````
 // ````````````````````````````
+// 1.Validate if schema exist before adding value
 // 1. Add data to have multiple pages, multiple pages for schema too, implement this
 // 2. Write more e2e test
 
@@ -124,17 +125,29 @@ type ServerStruct struct {
 }
 
 func main() {
-
+	// for i := 0; i < 55; i++ {
+	// 	input := fmt.Sprintf("CREATE TABLE user%v (id INTEGER PRIMARY KEY,name TEXT)", i)
+	// 	exectueCommand(input)
+	// }
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
 
 	input = "INSERT INTO user (name) values('Alice')"
 	exectueCommand(input)
 
-	input = "CREATE TABLE car (id INTEGER PRIMARY KEY,make TEXT)"
+	input = "INSERT INTO user (name) values('Bob')"
 	exectueCommand(input)
 
-	input = "INSERT INTO car (make) values('porsche')"
-	exectueCommand(input)
+	// input = "CREATE TABLE car (id INTEGER PRIMARY KEY,make TEXT)"
+	// exectueCommand(input)
+
+	// input = "INSERT INTO car (make) values('porsche')"
+	// exectueCommand(input)
+
+	// input = "CREATE TABLE cloth (id INTEGER PRIMARY KEY,made TEXT)"
+	// exectueCommand(input)
+
+	// input = "INSERT INTO cloth (made) values('adidas')"
+	// exectueCommand(input)
 
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"strconv"
 )
 
@@ -247,9 +248,13 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 
 	var pointers []byte
+	fmt.Println("data to parse")
+	fmt.Println(dataToParse)
 
-	for {
+	for len(dataToParse) > 2 {
 		pointer := dataToParse[:2]
+		fmt.Println("pointer??")
+		fmt.Println(pointer)
 		if pointer[0] == 0 && pointer[1] == 0 {
 			break
 		}

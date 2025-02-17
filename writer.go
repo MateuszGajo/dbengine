@@ -23,14 +23,25 @@ func NewWriter() *WriterStruct {
 // Action plan:
 // TOOD: handle retry logic for old data
 
-func (writer WriterStruct) writeToFile(data []byte, page int, firstPage PageParsed, conId string) {
+func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage PageParsed) {
 
 	writer.WriteToFileWithRetry(data, page, conId)
 
 	if page == 0 {
 		return
 	}
+
 	firstPage.dbHeader.fileChangeCounter++
+	firstPage.dbHeader.versionValidForNumber++
+	fmt.Println("write to page")
+	fmt.Println(page)
+	fmt.Println("current pages")
+	fmt.Println(firstPage.dbHeader.dbSizeInPages)
+	if page == firstPage.dbHeader.dbSizeInPages {
+		firstPage.dbHeader.dbSizeInPages++
+	} else if page > firstPage.dbHeader.dbSizeInPages {
+		panic("don't leave empty space")
+	}
 
 	assembledPage := assembleDbPage(firstPage)
 

@@ -60,7 +60,7 @@ func TestWriteExclusiveLockConcurrentWrite(t *testing.T) {
 
 		go func(id int) {
 			defer wg.Done()
-			writer.writeToFile([]byte{}, 1, PageParsed{}, "conId")
+			writer.writeToFile([]byte{}, 1, "conId", PageParsed{})
 			readTime[id] = time.Now().UnixMilli()
 		}(i)
 	}
@@ -101,7 +101,7 @@ func TestWriteExclusiveLockConcurrentWriteAndRead(t *testing.T) {
 	go func(id int) {
 
 		defer wg.Done()
-		writer.writeToFile([]byte{}, 1, PageParsed{}, "conId")
+		writer.writeToFile([]byte{}, 1, "conId", PageParsed{})
 		readTime[id] = time.Now().UnixMilli()
 	}(1)
 
