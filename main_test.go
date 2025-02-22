@@ -8,16 +8,17 @@ import (
 )
 
 func clearDbFile(fileName string) {
+	dbName = fileName
 	path, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	os.Remove(path + "/" + fileName)
+	os.Remove(path + "/" + fileName + ".db")
 
 }
 
 func TestSingleSchemaWithSingleValue(t *testing.T) {
-	clearDbFile("test.db")
+	clearDbFile("test")
 	dbName = "test"
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
@@ -52,11 +53,11 @@ func TestSingleSchemaWithSingleValue(t *testing.T) {
 		t.Error("Second page is different than expected")
 	}
 
-	clearDbFile("test.db")
+	clearDbFile("test")
 }
 
 func TestTwoSchemaWithSingleValue(t *testing.T) {
-	clearDbFile("test.db")
+	clearDbFile("test")
 	dbName = "test"
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
@@ -103,5 +104,5 @@ func TestTwoSchemaWithSingleValue(t *testing.T) {
 		t.Error("Third page is different than expected")
 	}
 
-	clearDbFile("test.db")
+	clearDbFile("test")
 }

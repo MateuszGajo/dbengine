@@ -10,12 +10,14 @@ func assembleDbPage(page PageParsed) []byte {
 	data = append(data, intToBinary(page.numberofCells, 2)...)
 	data = append(data, intToBinary(page.startCellContentArea, 2)...)
 	data = append(data, byte(page.framgenetedArea))
+
 	if len(page.rightMostpointer) > 0 {
 		data = append(data, page.rightMostpointer...)
 	}
 	data = append(data, page.pointers...)
 
 	zerosLen := PageSize - len(data) - len(page.cellArea)
+
 	data = append(data, make([]byte, zerosLen)...)
 	data = append(data, page.cellArea...)
 

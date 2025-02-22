@@ -89,7 +89,7 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	emptyDataPage := btreeHeaderForData
 	emptyDataPage = append(emptyDataPage, zerosSpace...)
 
-	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, server.firstPage)
+	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, &server.firstPage)
 
 }
 

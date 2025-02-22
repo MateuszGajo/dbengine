@@ -91,10 +91,13 @@ func exectueCommand(input string) {
 	fmt.Println("run generic parser")
 	_, parsedQuery := genericParser(input)
 
+	conId := pseudo_uuid()
+
 	server := ServerStruct{
 		pageSize: PageSize,
-		conId:    pseudo_uuid(),
+		conId:    conId,
 		dbInfo:   DbInfo{},
+		reader:   NewReader(conId),
 	}
 
 	data := NewReader(server.conId).readDbPage(0)
@@ -122,6 +125,7 @@ type ServerStruct struct {
 	pageSize  int
 	conId     string
 	dbInfo    DbInfo
+	reader    *PageReader
 }
 
 func main() {
@@ -132,11 +136,15 @@ func main() {
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
 
-	input = "INSERT INTO user (name) values('Alice')"
+	input = "CREATE TABLE user1 (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
+	input = "CREATE TABLE user2 (id INTEGER PRIMARY KEY,name TEXT)"
+	exectueCommand(input)
+	// input = "INSERT INTO user (name) values('Alice')"
+	// exectueCommand(input)
 
-	input = "INSERT INTO user (name) values('Bob')"
-	exectueCommand(input)
+	// input = "INSERT INTO user (name) values('Bob')"
+	// exectueCommand(input)
 
 	// input = "CREATE TABLE car (id INTEGER PRIMARY KEY,make TEXT)"
 	// exectueCommand(input)

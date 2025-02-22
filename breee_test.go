@@ -286,3 +286,655 @@ func TestUpdatePage(t *testing.T) {
 	}
 
 }
+
+func TestFindPageToInsertOnePage(t *testing.T) {
+	page := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	firstPage := PageParsed{
+		dbHeader: DbHeader{
+			dbSizeInPages: 1,
+		},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+	}
+
+	dataAssembled := assembleDbPage(page)
+
+	writer := NewWriter()
+
+	writer.writeToFile(dataAssembled, 0, "fds", &firstPage)
+
+	reader := NewReader("conId")
+
+	_, pageNumber := server.findPageToInsertData(*reader, 0)
+
+	if pageNumber != 0 {
+		t.Errorf("Expected page to be 0, got :%v", pageNumber)
+	}
+}
+
+func TestFindPageToInsertNestedPage(t *testing.T) {
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	secondPage := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+	}
+
+	firstPageAssembled := assembleDbPage(firstPage)
+
+	writer := NewWriter()
+
+	writer.writeToFile(firstPageAssembled, 0, "fds", &firstPage)
+
+	secondPageAssembled := assembleDbPage(secondPage)
+
+	writer.writeToFile(secondPageAssembled, 1, "fds", &firstPage)
+
+	reader := NewReader("conId")
+
+	_, pageNumber := server.findPageToInsertData(*reader, 0)
+
+	if pageNumber != 1 {
+		t.Errorf("Expected page to be 1, got :%v", pageNumber)
+	}
+}
+
+// func (server *ServerStruct) createNewLeafPage(pageNumber int) *PageParsed {
+// 	btreeHeader := updateBtreeHeaderLeafTable(CreateCell{}, &PageParsed{})
+
+// 	allCells := []byte{}
+// 	// Zeros data
+// 	zerosLength := PageSize - len(btreeHeader) - len(allCells)
+// 	zerosSpace := make([]byte, zerosLength)
+// 	//General method to save the daata to disk i guess
+// 	dataToSave := []byte{}
+
+// 	dataToSave = append(dataToSave, btreeHeader...)
+// 	dataToSave = append(dataToSave, zerosSpace...)
+// 	dataToSave = append(dataToSave, allCells...)
+
+// 	parsedData := parseReadPage(dataToSave, pageNumber)
+// 	return &parsedData
+// }
+
+func TestCreateNewLeafPage(t *testing.T) {
+	clearDbFile("test")
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+	}
+
+	leaftPage := server.createNewLeafPage()
+
+	if leaftPage.btreeType != int(TableBtreeLeafCell) {
+		t.Error("incorect btree type")
+	}
+
+	if len(leaftPage.cellArea) > 0 {
+		t.Error("Cell area should be empty")
+	}
+
+	if len(leaftPage.rightMostpointer) > 0 {
+		t.Error("There should be no right pointer")
+	}
+
+	if leaftPage.numberofCells != 0 {
+		t.Error("number of cell shoud be 0")
+	}
+
+	if len(leaftPage.pointers) > 0 {
+		t.Error("there should be no pointer")
+	}
+
+	if leaftPage.framgenetedArea != 0 {
+		t.Errorf("should be no fragmeneted area")
+	}
+
+}
+
+func TestCreateNewinteriorPage(t *testing.T) {
+	clearDbFile("test")
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+	}
+	rightPointer := []byte{0, 0, 0, 1}
+
+	interiorPage := server.createNewInteriorPage(rightPointer)
+
+	if interiorPage.btreeType != int(TableBtreeInteriorCell) {
+		t.Error("incorect btree type")
+	}
+
+	if len(interiorPage.cellArea) > 0 {
+		t.Error("Cell area should be empty")
+	}
+
+	if !reflect.DeepEqual(interiorPage.rightMostpointer, rightPointer) {
+		t.Errorf("Pointer should be %v , got: %v", rightPointer, interiorPage.rightMostpointer)
+	}
+
+	if interiorPage.numberofCells != 0 {
+		t.Error("number of cell shoud be 0")
+	}
+
+	if len(interiorPage.pointers) > 0 {
+		t.Error("there should be no pointer")
+	}
+
+	if interiorPage.framgenetedArea != 0 {
+		t.Errorf("should be no fragmeneted area")
+	}
+
+}
+
+func TestInsertPointerIntoInteriorPage(t *testing.T) {
+	clearDbFile("test")
+	page := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: page,
+	}
+	rightPointer := []byte{0, 0, 0, 2}
+	rowId := 2
+	expectedCellAreaContent := page.rightMostpointer
+	expectedCellAreaContent = append(expectedCellAreaContent, intToBinary(rowId, 2)...)
+
+	err := server.insertPointerIntoInteriorPage(rightPointer, rowId, &page)
+
+	if err != nil {
+		t.Errorf("should add pointer without any errors, got %v", err)
+	}
+
+	if page.btreeType != int(TableBtreeInteriorCell) {
+		t.Error("incorect btree type")
+	}
+
+	if !reflect.DeepEqual(expectedCellAreaContent, page.cellArea) {
+		t.Errorf("Cell area should be: %v, got: %v", expectedCellAreaContent, page.cellArea)
+	}
+
+	if !reflect.DeepEqual(page.rightMostpointer, rightPointer) {
+		t.Errorf("Pointer should be %v , got: %v", rightPointer, page.rightMostpointer)
+	}
+
+	if page.numberofCells != 1 {
+		t.Error("number of cell shoud be 1")
+	}
+
+	if len(page.pointers) != 2 {
+		t.Error("there should be 1 pointer")
+	}
+
+	if page.framgenetedArea != 0 {
+		t.Errorf("should be no fragmeneted area")
+	}
+}
+
+func TestInsertMultiplePointerIntoInteriorPage(t *testing.T) {
+	clearDbFile("test")
+	page := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: page,
+	}
+	rightPointers := [][]byte{{0, 0, 0, 2}, {0, 0, 0, 3}, {0, 0, 0, 4}}
+	rowIds := []int{5, 15, 20}
+	expectedCellAreaContent := page.rightMostpointer
+	expectedCellAreaContent = append(expectedCellAreaContent, intToBinary(rowIds[0], 2)...)
+	expectedPointers := []byte{}
+
+	var err error
+	var interiorPage *PageParsed = &page
+
+	for i, v := range rightPointers {
+		if i < len(rightPointers)-1 {
+			expectedCellAreaContent = append(expectedCellAreaContent, v...)
+			expectedCellAreaContent = append(expectedCellAreaContent, intToBinary(rowIds[i+1], 2)...)
+		}
+
+		// if i != len(rightPointers)-1 {
+		expectedPointers = append(expectedPointers, intToBinary(PageSize-(i+1)*6, 2)...)
+		// }
+
+		err = server.insertPointerIntoInteriorPage(v, rowIds[i], interiorPage)
+
+		if err != nil {
+			t.Errorf("Err while adding pointer :%v", err)
+		}
+
+	}
+
+	if err != nil {
+		t.Errorf("should add pointer without any errors, got %v", err)
+	}
+
+	if interiorPage.btreeType != int(TableBtreeInteriorCell) {
+		t.Error("incorect btree type")
+	}
+
+	if !reflect.DeepEqual(expectedCellAreaContent, interiorPage.cellArea) {
+		t.Errorf("Cell area should be: %v, got: %v", expectedCellAreaContent, interiorPage.cellArea)
+	}
+
+	if !reflect.DeepEqual(interiorPage.rightMostpointer, rightPointers[2]) {
+		t.Errorf("Pointer should be %v , got: %v", rightPointers[2], interiorPage.rightMostpointer)
+	}
+
+	if interiorPage.numberofCells != len(rightPointers) {
+		t.Errorf("number of cell shoud be :%v, insted we got: %v", len(rightPointers), interiorPage.numberofCells)
+	}
+
+	if !reflect.DeepEqual(interiorPage.pointers, expectedPointers) {
+		t.Errorf("Expected pointer to be: %v, got: %v", expectedPointers, interiorPage.pointers)
+	}
+
+	if interiorPage.framgenetedArea != 0 {
+		t.Errorf("should be no fragmeneted area")
+	}
+}
+
+func TestInsertFindPointerInteriorPageWithAvilableSpaceNoPage(t *testing.T) {
+	clearDbFile("test")
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+		reader:    NewReader("aa"),
+	}
+
+	writer := NewWriter()
+
+	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
+
+	foundPage, _ := server.findPointerInteriorPageWithAvilableSpace(0)
+
+	if foundPage != nil {
+		t.Errorf("found page should be nil, insted we got: %v", foundPage)
+	}
+}
+
+func TestInsertFindPointerInteriorPageWithAvilableSpaceFirstPage(t *testing.T) {
+	clearDbFile("test")
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	secondPage := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+		reader:    NewReader("aa"),
+	}
+
+	writer := NewWriter()
+
+	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
+	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &firstPage)
+
+	foundPage, pageNumber := server.findPointerInteriorPageWithAvilableSpace(0)
+
+	if foundPage == nil {
+		t.Error("found page should not be nill")
+	}
+
+	if pageNumber != 0 {
+		t.Errorf("should return first page, insted it returned: %v", pageNumber)
+	}
+}
+
+func TestInsertFindPointerInteriorPageWithAvilableSpaceNestedPaged(t *testing.T) {
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	secondPage := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 2},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	thirdPage := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+		reader:    NewReader("aa"),
+	}
+
+	writer := NewWriter()
+
+	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
+	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &firstPage)
+	writer.writeToFile(assembleDbPage(thirdPage), 2, "fds", &firstPage)
+
+	foundPage, pageNumber := server.findPointerInteriorPageWithAvilableSpace(0)
+
+	if foundPage == nil {
+		t.Error("found page should not be nill")
+	}
+
+	if pageNumber != 1 {
+		t.Errorf("should return second page, insted it returned: %v", pageNumber)
+	}
+}
+
+func TestInsertFindPointerInteriorPageWithAvilableSpaceNestedPageFullCapacity(t *testing.T) {
+	clearDbFile("test")
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	// whoel page 4096 bytes, 4x poiters = 8 bytes, 4088, 12 header length = 4076, cell area 4076/4 = 1019 to take full page
+	cellArea := make([]byte, 1019)
+	for i := 0; i < 1019; i++ {
+		cellArea[i] = byte(i)
+	}
+
+	numberOfCell := 4
+
+	allCellArea := []byte{}
+	pointers := []byte{}
+	for i := 0; i < numberOfCell; i++ {
+		allCellArea = append(allCellArea, cellArea...)
+
+		pointers = append(pointers, intToBinary(PageSize-len(allCellArea)*(i+1), 2)...)
+	}
+
+	secondPage := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             allCellArea,
+		startCellContentArea: PageSize - len(cellArea)*numberOfCell,
+		numberofCells:        numberOfCell,
+		pointers:             pointers,
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{0, 0, 0, 2},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	thirdPage := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+		reader:    NewReader("aa"),
+	}
+
+	// fmt.Println("Are we here??")
+	// fmt.Println(len(assembleDbPage(secondPage)))
+	// fmt.Println("Are we here??")
+	writer := NewWriter()
+
+	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
+	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &firstPage)
+	writer.writeToFile(assembleDbPage(thirdPage), 2, "fds", &firstPage)
+
+	foundPage, pageNumber := server.findPointerInteriorPageWithAvilableSpace(0)
+
+	if foundPage == nil {
+		t.Error("found page should not be nill")
+	}
+
+	if pageNumber != 0 {
+		t.Errorf("should return first page, insted it returned: %v", pageNumber)
+	}
+}
+
+func TestInsertSchemaOnlyOneLeafPage(t *testing.T) {
+	clearDbFile("test")
+	firstPage := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+		reader:    NewReader("aa"),
+	}
+
+	writer := NewWriter()
+
+	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
+
+	_, parsedQuery := genericParser("CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)")
+
+	createSqlQueryData := parseCreateTableQuery(parsedQuery, "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)")
+	pointer := 0
+
+	insertedPage, pageNumber := server.insertSchema(string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointer, createSqlQueryData.rawQuery)
+
+	if pageNumber != 0 {
+		t.Errorf("Expected page number to be 0, we got:%v", pageNumber)
+	}
+
+	if insertedPage.numberofCells != 1 {
+		t.Errorf("Expected nuber of cells on the page to be 1, we got: %v", insertedPage.numberofCells)
+	}
+
+}
+
+// func (server *ServerStruct) findPointerInteriorPageWithAvilableSpace(reader PageReader, pageNumber int) (*PageParsed, int) {
+// 	page := reader.readDbPage(pageNumber)
+// 	parsedPage := parseReadPage(page, pageNumber)
+// 	if parsedPage.btreeType != int(TableBtreeLeafCell) {
+// 		return nil, 0
+// 	}
+
+// 	btreeLeftCellHeaderLength := 12
+// 	spaceAvilable := parsedPage.startCellContentArea - btreeLeftCellHeaderLength - len(parsedPage.pointers) - parsedPage.dbHeaderSize
+// 	newPointerLength := 2
+// 	cellDataLength := 6
+// 	newCellSpace := cellDataLength + newPointerLength
+// 	if spaceAvilable >= newCellSpace {
+// 		return &parsedPage, pageNumber
+// 	}
+
+// 	newPageNumber := binary.BigEndian.Uint32(parsedPage.rightMostpointer)
+
+// 	return server.findPointerInteriorPageWithAvilableSpace(reader, int(newPageNumber))
+// }
+
+func TestUpdatePageMultiple(t *testing.T) {
+	//START HERE,FIX MOVING PAGE FROM 0X0D TO 0X05
+	//START HERE,FIX MOVING PAGE FROM 0X0D TO 0X05
+	//START HERE,FIX MOVING PAGE FROM 0X0D TO 0X05
+	//START HERE,FIX MOVING PAGE FROM 0X0D TO 0X05
+	//START HERE,FIX MOVING PAGE FROM 0X0D TO 0X05
+	//START HERE,FIX MOVING PAGE FROM 0X0D TO 0X05
+	clearDbFile("test")
+	dbName = "test"
+
+	parsedData := PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeLeafCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+
+	firstPage := PageParsed{
+		dbHeader: DbHeader{
+			dbSizeInPages: 1,
+		},
+	}
+
+	server := ServerStruct{
+		firstPage: firstPage,
+	}
+
+	reader := NewReader("conId")
+	writer := NewWriter()
+	page := assembleDbPage(parsedData)
+	parsedPage := parseReadPage(page, 0)
+	for i := 1; i < 53; i++ {
+		fmt.Printf("\niteration :%v", i)
+		table := fmt.Sprintf("user%v", i)
+		query := fmt.Sprintf("CREATE TABLE user%v (id INTEGER PRIMARY KEY,name TEXT)", i)
+
+		page = server.updatePageRoot(&parsedPage, 0, *reader, *writer, string(SqlQueryTableObjectType), table, table, i, query)
+		// fmt.Println("did we return it")
+
+		// if i == 49 {
+		// 	fmt.Println(page)
+		// }
+
+		parsedPage = parseReadPage(page, 0)
+	}
+
+}

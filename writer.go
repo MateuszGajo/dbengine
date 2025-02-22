@@ -23,8 +23,7 @@ func NewWriter() *WriterStruct {
 // Action plan:
 // TOOD: handle retry logic for old data
 
-func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage PageParsed) {
-
+func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage *PageParsed) {
 	writer.WriteToFileWithRetry(data, page, conId)
 
 	if page == 0 {
@@ -33,17 +32,16 @@ func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firs
 
 	firstPage.dbHeader.fileChangeCounter++
 	firstPage.dbHeader.versionValidForNumber++
-	fmt.Println("write to page")
-	fmt.Println(page)
-	fmt.Println("current pages")
-	fmt.Println(firstPage.dbHeader.dbSizeInPages)
 	if page == firstPage.dbHeader.dbSizeInPages {
 		firstPage.dbHeader.dbSizeInPages++
 	} else if page > firstPage.dbHeader.dbSizeInPages {
+		fmt.Println(page)
+		fmt.Println("is greater than number of paghes")
+		fmt.Println(firstPage.dbHeader.dbSizeInPages)
 		panic("don't leave empty space")
 	}
 
-	assembledPage := assembleDbPage(firstPage)
+	assembledPage := assembleDbPage(*firstPage)
 
 	writer.WriteToFileWithRetry(assembledPage, 0, conId)
 
@@ -56,7 +54,6 @@ func (writer *WriterStruct) WriteToFileWithRetry(data []byte, page int, conId st
 	err := writer.writeToFileRaw(data, page, writer.dbName)
 	if err != nil {
 		if writer.retry == 3 {
-			fmt.Println(err)
 			panic("Hardware problem, can't write to disk")
 		}
 		time.Sleep(1 * time.Millisecond)

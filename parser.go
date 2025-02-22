@@ -188,6 +188,7 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 
 func parseReadPage(data []byte, dbPage int) PageParsed {
 	if dbPage == 0 && len(data) == 0 {
+		fmt.Println("here??")
 		return PageParsed{
 			dbHeader:             header(),
 			dbHeaderSize:         100,
@@ -204,7 +205,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 
 	if len(data) != PageSize {
-		panic("invalid page size, expected" + strconv.Itoa(PageSize))
+		panic("invalid page size, expected" + strconv.Itoa(PageSize) + " got: " + strconv.Itoa(len(data)))
 	}
 	dataToParse := data
 	var dbHeader DbHeader
@@ -217,12 +218,16 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 
 	btreeType := dataToParse[0]
-	isPointerValue := false
+	isPointerValue := btreeType == 0x05
+	if btreeType != 0x05 && btreeType != 0x0d {
+		panic("implement this btree types")
+	}
 	switch BtreeType(btreeType) {
 	case TableBtreeInteriorCell, IndexBtreeInteriorCell:
 		isPointerValue = true
 
 	}
+
 	freebBlocks := dataToParse[1:3]
 	if freebBlocks[0] != 0 {
 		panic("implement free blocks more than 0 cell")
@@ -248,19 +253,17 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 
 	var pointers []byte
-	fmt.Println("data to parse")
-	fmt.Println(dataToParse)
 
 	for len(dataToParse) > 2 {
+		fmt.Println("pointers???")
 		pointer := dataToParse[:2]
-		fmt.Println("pointer??")
-		fmt.Println(pointer)
 		if pointer[0] == 0 && pointer[1] == 0 {
 			break
 		}
 		dataToParse = dataToParse[2:]
 		pointers = append(pointers, pointer...)
 	}
+	fmt.Println("after pointerS???")
 	if len(data) < int(startCellContentAreaBigEndian) {
 		panic("data length is lesser than start of cell content area")
 	}
@@ -274,7 +277,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	latestRowValues := []byte{}
 	var latestRow LastPageParseLatestRow
 
-	if len(cellAreaContent) > 0 {
+	if len(cellAreaContent) > 0 && btreeType == 0x13 {
 		latestRowLength := int(cellAreaContent[0]) + 2
 		//TOOD:  wait what why 9??? no idea, was it hardcoded?? i guess
 		var latestRowLengthArr []byte
@@ -294,7 +297,10 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		}
 		latestRowRaw := cellAreaContent[:latestRowLength]
 		latestRowId := latestRowRaw[1]
+		fmt.Println("hello here??")
+
 		latestRowheaderLength := latestRowRaw[2]
+		fmt.Println("hello here2??")
 		latestRowHeaders = latestRowRaw[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
 		latestRowValues = latestRowRaw[3-1+int(latestRowheaderLength):]
 		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
