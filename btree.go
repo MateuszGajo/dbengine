@@ -86,6 +86,9 @@ func updateBtreeHeaderLeafTable(cell CreateCell, parsedData *PageParsed) []byte 
 	firstFreeBlockOnPage := intToBinary(0, 2)
 	numberOfCells := intToBinary(currentNumberOfCell, 2)
 
+	fmt.Println("create header, startCellContentArea")
+	fmt.Println(currentCellStart)
+
 	startCellContentArea := intToBinary(currentCellStart, 2)
 	framgentedFreeBytesWithingCellContentArea := intToBinary(0, 1)
 
@@ -211,47 +214,47 @@ func updateBtreeHeaderLeafTableIntoInterior(rightMostPointer []byte, parsedData 
 // WE are getting return statement,
 
 // lets assume we only use 0x05 and 0x0d for simplicity
-func (server *ServerStruct) updatePageRoot(page *PageParsed, pageNumber int, reader PageReader, writer WriterStruct, valuesToAdd ...interface{}) []byte {
+// func (server *ServerStruct) updatePageRoot(page *PageParsed, pageNumber int, reader PageReader, writer WriterStruct, valuesToAdd ...interface{}) []byte {
 
-	updatedPage, newPages := server.updatePage(page, pageNumber, reader, writer, valuesToAdd...)
+// 	updatedPage, newPages := server.updatePage(page, pageNumber, reader, writer, valuesToAdd...)
 
-	if updatedPage != nil {
-		return updatedPage
-	}
+// 	if updatedPage != nil {
+// 		return updatedPage
+// 	}
 
-	rowId := newPages[0].rowId
-	rightMostPointer := newPages[0].pointer
+// 	rowId := newPages[0].rowId
+// 	rightMostPointer := newPages[0].pointer
 
-	// currentPageData := assembleDbPage(*page)
-	// rightMostPointer := intToBinary(server.firstPage.dbHeader.dbSizeInPages, 2)
-	cellToAdd := rightMostPointer
-	if *rowId > 127 {
-		panic("implement when row id greater than 127")
-	}
-	if len(cellToAdd) > 0 {
-		cellToAdd = append(cellToAdd, byte(*rowId))
-	}
+// 	// currentPageData := assembleDbPage(*page)
+// 	// rightMostPointer := intToBinary(server.firstPage.dbHeader.dbSizeInPages, 2)
+// 	cellToAdd := rightMostPointer
+// 	if *rowId > 127 {
+// 		panic("implement when row id greater than 127")
+// 	}
+// 	if len(cellToAdd) > 0 {
+// 		cellToAdd = append(cellToAdd, byte(*rowId))
+// 	}
 
-	// writer.writeToFile(currentPageData, server.firstPage.dbHeader.dbSizeInPages, server.conId, server.firstPage)
+// 	// writer.writeToFile(currentPageData, server.firstPage.dbHeader.dbSizeInPages, server.conId, server.firstPage)
 
-	btreeHeader := updateBtreeHeaderLeafTableIntoInterior(rightMostPointer, &PageParsed{})
-	allCells := cellToAdd
-	// allCells = append(allCells, page.cellArea...)
-	// Zeros data
-	zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
-	zerosSpace := make([]byte, zerosLength)
-	//General method to save the daata to disk i guess
-	dataToSave := assembleDbHeader(page.dbHeader)
-	dataToSave = append(dataToSave, btreeHeader...)
-	dataToSave = append(dataToSave, zerosSpace...)
-	dataToSave = append(dataToSave, allCells...)
+// 	btreeHeader := updateBtreeHeaderLeafTableIntoInterior(rightMostPointer, &PageParsed{})
+// 	allCells := cellToAdd
+// 	// allCells = append(allCells, page.cellArea...)
+// 	// Zeros data
+// 	zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
+// 	zerosSpace := make([]byte, zerosLength)
+// 	//General method to save the daata to disk i guess
+// 	dataToSave := assembleDbHeader(page.dbHeader)
+// 	dataToSave = append(dataToSave, btreeHeader...)
+// 	dataToSave = append(dataToSave, zerosSpace...)
+// 	dataToSave = append(dataToSave, allCells...)
 
-	//swipe pages
+// 	//swipe pages
 
-	writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+// 	writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
 
-	return dataToSave
-}
+// 	return dataToSave
+// }
 
 type CreatedPages struct {
 	pointer   []byte
@@ -291,11 +294,14 @@ type CreatedPages struct {
 func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, int) {
 	reader := NewReader(server.conId)
 	writer := NewWriter()
-	page, pageNumber := server.findPageToInsertData(*reader, 0)
+	pageToInsertData, pageNumber := server.findPageToInsertData(*reader, 0)
 
-	cell := createCell(BtreeType(page.btreeType), page, values...)
+	fmt.Println("hello root page")
+	fmt.Printf("%+v", pageToInsertData)
 
-	isSpace := server.checkIfThereIsSpace(cell, *page)
+	cell := createCell(BtreeType(pageToInsertData.btreeType), pageToInsertData, values...)
+
+	isSpace := server.checkIfThereIsSpace(cell, *pageToInsertData)
 
 	//if there is space only need to update page
 	fmt.Println("hello???")
@@ -303,70 +309,102 @@ func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, in
 		fmt.Println("Expected to go there")
 		fmt.Println("page number?")
 		fmt.Println(pageNumber)
-		return server.insertData(*writer, cell, *page, pageNumber), pageNumber
+		server.insertData(cell, pageToInsertData)
+
+		dataToSave := assembleDbPage(*pageToInsertData)
+
+		writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+
+		return pageToInsertData, pageNumber
+
 	}
 
 	// if page 0 and there is space witohut header, create 0x05 move header then and update 0x0d moving it to last page
-	if pageNumber == 0 && server.checkIfThereIsSpaceWithoutHeader(cell, *page) {
-		header := page.dbHeader
+	if pageNumber == 0 && server.checkIfThereIsSpaceWithoutHeader(cell, *pageToInsertData) {
+		header := pageToInsertData.dbHeader
 		// strip header
-		page.dbHeader = DbHeader{}
-		page.dbHeaderSize = 0
+		pageToInsertData.dbHeader = DbHeader{}
+		pageToInsertData.dbHeaderSize = 0
 
-		writer.writeToFile(assembleDbPage(*page), page.dbHeader.dbSizeInPages, server.conId, page)
+		writer.writeToFile(assembleDbPage(*pageToInsertData), pageToInsertData.dbHeader.dbSizeInPages, server.conId, pageToInsertData)
 
-		interiorPage := server.createNewInteriorPage(intToBinary(page.dbHeader.dbSizeInPages, 4))
+		interiorPage := server.createNewInteriorPage(intToBinary(pageToInsertData.dbHeader.dbSizeInPages, 4))
 		interiorPage.dbHeader = header
 		interiorPage.dbHeaderSize = 100
 
 		writer.writeToFile(assembleDbPage(*interiorPage), 0, server.conId, interiorPage)
 
-		return page, page.dbHeader.dbSizeInPages
+		return pageToInsertData, pageToInsertData.dbHeader.dbSizeInPages
 	}
 
 	// if find interior page, that means it has header in correct page, we need only to add new leaf page at the end and point to it
 	interiorPage, pageNumber := server.findPointerInteriorPageWithAvilableSpace(0)
 	if interiorPage != nil {
+		fmt.Println("that condition???")
+		fmt.Println("that condition???")
+		fmt.Println("that condition???")
 
 		leafPage := server.createNewLeafPage()
-		server.insertData(*writer, cell, *leafPage, pageNumber)
-		server.insertPointerIntoInteriorPage(intToBinary(page.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, interiorPage)
 
-		dataToSave := assembleDbPage(*interiorPage)
+		fmt.Println("empty leaft page")
+		fmt.Println(leafPage)
+		server.insertData(cell, leafPage)
+
+		dataToSave := assembleDbPage(*leafPage)
+
+		writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+
+		fmt.Println("take a look at interior page")
+		fmt.Printf("%+v", interiorPage)
+		fmt.Println("pointer")
+		fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
+
+		server.insertPointerIntoInteriorPage(intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, interiorPage)
+
+		dataToSave = assembleDbPage(*interiorPage)
+
+		fmt.Println("take a look at interior page")
+		fmt.Printf("%+v", interiorPage)
+		fmt.Printf("\n save to page number")
+		fmt.Println(pageNumber)
 		writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
 
-		return leafPage, pageNumber
+		return leafPage, server.firstPage.dbHeader.dbSizeInPages
 	}
 
 	// if not find interior page, current 0x0d move at the end,  we need to insert it as page 0 so we need to copy header, create 0x05 page with header, and create new 0x0d
 	// current page can be 0x05 with no space, or 0x0d, we need to move it at the end, does it matter which one is it, i think no
 
-	interiorPage2 := server.createNewInteriorPage(intToBinary(page.dbHeader.dbSizeInPages, 4))
-	interiorPage2.dbHeader = page.dbHeader
+	interiorPage2 := server.createNewInteriorPage(intToBinary(pageToInsertData.dbHeader.dbSizeInPages, 4))
+	interiorPage2.dbHeader = pageToInsertData.dbHeader
 	interiorPage2.dbHeaderSize = 100
 
 	writer.writeToFile(assembleDbPage(*interiorPage2), 0, server.conId, &PageParsed{})
 
-	page.dbHeader = DbHeader{}
-	page.dbHeaderSize = 0
+	pageToInsertData.dbHeader = DbHeader{}
+	pageToInsertData.dbHeaderSize = 0
 
-	writer.writeToFile(assembleDbPage(*page), page.dbHeader.dbSizeInPages, server.conId, interiorPage2)
-	page = interiorPage2
-	page.dbHeader.dbSizeInPages++
+	writer.writeToFile(assembleDbPage(*pageToInsertData), pageToInsertData.dbHeader.dbSizeInPages, server.conId, interiorPage2)
+	pageToInsertData = interiorPage2
+	pageToInsertData.dbHeader.dbSizeInPages++
 
 	leafPage := server.createNewLeafPage()
-	server.insertData(*writer, cell, *leafPage, page.dbHeader.dbSizeInPages)
+	server.insertData(cell, leafPage)
 
-	err := server.insertPointerIntoInteriorPage(intToBinary(page.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, interiorPage)
+	dataToSave := assembleDbPage(*leafPage)
+
+	writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+
+	err := server.insertPointerIntoInteriorPage(intToBinary(pageToInsertData.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, interiorPage)
 
 	if err != nil {
 		panic(err)
 	}
 
-	dataToSave := assembleDbPage(*interiorPage2)
+	dataToSave = assembleDbPage(*interiorPage2)
 	writer.writeToFile(dataToSave, 0, server.conId, interiorPage2)
 
-	return leafPage, page.dbHeader.dbSizeInPages
+	return leafPage, pageToInsertData.dbHeader.dbSizeInPages
 }
 
 func (server *ServerStruct) insertPointerIntoInteriorPage(rightMostPointer []byte, rowId int, page *PageParsed) error {
@@ -488,7 +526,10 @@ func (server *ServerStruct) checkIfThereIsSpaceWithoutHeader(cell CreateCell, pa
 }
 
 func (server *ServerStruct) createNewLeafPage() *PageParsed {
-	btreeHeader := updateBtreeHeaderLeafTable(CreateCell{}, &PageParsed{})
+	btreeHeader := updateBtreeHeaderLeafTable(CreateCell{}, nil)
+
+	fmt.Println("Create new left page, lets see header")
+	fmt.Printf("%+v", btreeHeader)
 
 	allCells := []byte{}
 	// Zeros data
@@ -506,7 +547,7 @@ func (server *ServerStruct) createNewLeafPage() *PageParsed {
 }
 
 // if there is no space???
-func (server *ServerStruct) insertData(writer WriterStruct, cell CreateCell, page PageParsed, pageNumber int) *PageParsed {
+func (server *ServerStruct) insertData(cell CreateCell, page *PageParsed) {
 
 	// btreeHeader := updateBtreeHeaderLeafTable(cell, &page)
 	page.numberofCells++
@@ -514,223 +555,217 @@ func (server *ServerStruct) insertData(writer WriterStruct, cell CreateCell, pag
 	newCell = append(newCell, page.cellArea...)
 	page.cellArea = newCell
 
-	newCellStartPosition := PageSize - cell.dataLength
+	newCellStartPosition := page.startCellContentArea - cell.dataLength
 	page.startCellContentArea = newCellStartPosition
 	pointers := append(page.pointers, intToBinary(newCellStartPosition, 2)...) // -2 is for row id and for length byte
 	page.pointers = pointers
 
-	dataToSave := assembleDbPage(page)
-
-	writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
-
-	return &page
-
 }
 
-func (server *ServerStruct) updatePage(page *PageParsed, pageNumber int, reader PageReader, writer WriterStruct, valuesToAdd ...interface{}) (updatedPage []byte, createdPages []CreatedPages) {
+// func (server *ServerStruct) updatePage(page *PageParsed, pageNumber int, reader PageReader, writer WriterStruct, valuesToAdd ...interface{}) (updatedPage []byte, createdPages []CreatedPages) {
 
-	if page.btreeType == int(TableBtreeLeafCell) {
-		fmt.Println("etnter")
-		cell := createCell(TableBtreeLeafCell, page, valuesToAdd...)
-		fmt.Println("etnter2")
-		btreeLeftCellHeaderLength := 8
-		spaceAvilable := page.startCellContentArea - btreeLeftCellHeaderLength - len(page.pointers) - page.dbHeaderSize
-		newPointerLength := 2
-		newCellSpace := cell.dataLength + newPointerLength
-		if spaceAvilable >= newCellSpace {
-			//fits into page
+// 	if page.btreeType == int(TableBtreeLeafCell) {
+// 		fmt.Println("etnter")
+// 		cell := createCell(TableBtreeLeafCell, page, valuesToAdd...)
+// 		fmt.Println("etnter2")
+// 		btreeLeftCellHeaderLength := 8
+// 		spaceAvilable := page.startCellContentArea - btreeLeftCellHeaderLength - len(page.pointers) - page.dbHeaderSize
+// 		newPointerLength := 2
+// 		newCellSpace := cell.dataLength + newPointerLength
+// 		if spaceAvilable >= newCellSpace {
+// 			//fits into page
 
-			btreeHeader := updateBtreeHeaderLeafTable(cell, page)
+// 			btreeHeader := updateBtreeHeaderLeafTable(cell, page)
 
-			allCells := cell.data
-			allCells = append(allCells, page.cellArea...)
-			// Zeros data
-			zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
-			zerosSpace := make([]byte, zerosLength)
-			//General method to save the daata to disk i guess
-			dataToSave := []byte{}
-			if page.dbHeaderSize > 0 {
-				dataToSave = append(dataToSave, assembleDbHeader(page.dbHeader)...)
-			}
-			dataToSave = append(dataToSave, btreeHeader...)
-			dataToSave = append(dataToSave, zerosSpace...)
-			dataToSave = append(dataToSave, allCells...)
+// 			allCells := cell.data
+// 			allCells = append(allCells, page.cellArea...)
+// 			// Zeros data
+// 			zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
+// 			zerosSpace := make([]byte, zerosLength)
+// 			//General method to save the daata to disk i guess
+// 			dataToSave := []byte{}
+// 			if page.dbHeaderSize > 0 {
+// 				dataToSave = append(dataToSave, assembleDbHeader(page.dbHeader)...)
+// 			}
+// 			dataToSave = append(dataToSave, btreeHeader...)
+// 			dataToSave = append(dataToSave, zerosSpace...)
+// 			dataToSave = append(dataToSave, allCells...)
 
-			writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+// 			writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
 
-			return dataToSave, nil
+// 			return dataToSave, nil
 
-			// updatedPage = dataToSave
-			// return newPage, updatedPage, cell.rowId
-		} else {
-			fmt.Println("enter else")
-			fmt.Println("enter else")
-			fmt.Println("enter else")
+// 			// updatedPage = dataToSave
+// 			// return newPage, updatedPage, cell.rowId
+// 		} else {
+// 			fmt.Println("enter else")
+// 			fmt.Println("enter else")
+// 			fmt.Println("enter else")
 
-			isFirstPageAndContentFit := pageNumber == 0 && spaceAvilable+100 >= newCellSpace
+// 			isFirstPageAndContentFit := pageNumber == 0 && spaceAvilable+100 >= newCellSpace
 
-			if isFirstPageAndContentFit {
-				fmt.Println("enter first condition")
-				btreeHeader := updateBtreeHeaderLeafTable(cell, page)
+// 			if isFirstPageAndContentFit {
+// 				fmt.Println("enter first condition")
+// 				btreeHeader := updateBtreeHeaderLeafTable(cell, page)
 
-				allCells := cell.data
-				fmt.Println("checkpoint 0")
-				allCells = append(allCells, page.cellArea...)
-				// Zeros data
-				zerosLength := PageSize - len(btreeHeader) - len(allCells)
-				zerosSpace := make([]byte, zerosLength)
-				//General method to save the daata to disk i guess
-				dataToSave := []byte{}
-				fmt.Println("checkpoint 1")
-				dataToSave = append(dataToSave, btreeHeader...)
-				dataToSave = append(dataToSave, zerosSpace...)
-				dataToSave = append(dataToSave, allCells...)
-				writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
-				server.firstPage.dbHeader.dbSizeInPages++
-				createdPage := CreatedPages{
-					pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
-					rowId:     &cell.rowId,
-					savedPAge: dataToSave,
-				}
-				return nil, []CreatedPages{createdPage}
-			} else if pageNumber == 0 {
-				fmt.Println("enter second condition")
-				btreeHeader := updateBtreeHeaderLeafTable(cell, page)
+// 				allCells := cell.data
+// 				fmt.Println("checkpoint 0")
+// 				allCells = append(allCells, page.cellArea...)
+// 				// Zeros data
+// 				zerosLength := PageSize - len(btreeHeader) - len(allCells)
+// 				zerosSpace := make([]byte, zerosLength)
+// 				//General method to save the daata to disk i guess
+// 				dataToSave := []byte{}
+// 				fmt.Println("checkpoint 1")
+// 				dataToSave = append(dataToSave, btreeHeader...)
+// 				dataToSave = append(dataToSave, zerosSpace...)
+// 				dataToSave = append(dataToSave, allCells...)
+// 				writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+// 				server.firstPage.dbHeader.dbSizeInPages++
+// 				createdPage := CreatedPages{
+// 					pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
+// 					rowId:     &cell.rowId,
+// 					savedPAge: dataToSave,
+// 				}
+// 				return nil, []CreatedPages{createdPage}
+// 			} else if pageNumber == 0 {
+// 				fmt.Println("enter second condition")
+// 				btreeHeader := updateBtreeHeaderLeafTable(cell, page)
 
-				allCells := page.cellArea
-				// Zeros data
-				zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
-				zerosSpace := make([]byte, zerosLength)
-				//General method to save the daata to disk i guess
-				dataToSave := []byte{}
-				dataToSave = append(dataToSave, btreeHeader...)
-				dataToSave = append(dataToSave, zerosSpace...)
-				dataToSave = append(dataToSave, allCells...)
-				writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
-				server.firstPage.dbHeader.dbSizeInPages++
-				rowId := cell.rowId - 1
-				createdPage := CreatedPages{
-					pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
-					rowId:     &rowId,
-					savedPAge: dataToSave,
-				}
-				createdPages = append(createdPages, createdPage)
-			}
+// 				allCells := page.cellArea
+// 				// Zeros data
+// 				zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
+// 				zerosSpace := make([]byte, zerosLength)
+// 				//General method to save the daata to disk i guess
+// 				dataToSave := []byte{}
+// 				dataToSave = append(dataToSave, btreeHeader...)
+// 				dataToSave = append(dataToSave, zerosSpace...)
+// 				dataToSave = append(dataToSave, allCells...)
+// 				writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+// 				server.firstPage.dbHeader.dbSizeInPages++
+// 				rowId := cell.rowId - 1
+// 				createdPage := CreatedPages{
+// 					pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
+// 					rowId:     &rowId,
+// 					savedPAge: dataToSave,
+// 				}
+// 				createdPages = append(createdPages, createdPage)
+// 			}
 
-			btreeHeader := updateBtreeHeaderLeafTable(cell, nil)
+// 			btreeHeader := updateBtreeHeaderLeafTable(cell, nil)
 
-			allCells := cell.data
-			// Zeros data
-			zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
-			zerosSpace := make([]byte, zerosLength)
-			//General method to save the daata to disk i guess
-			dataToSave := []byte{}
+// 			allCells := cell.data
+// 			// Zeros data
+// 			zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
+// 			zerosSpace := make([]byte, zerosLength)
+// 			//General method to save the daata to disk i guess
+// 			dataToSave := []byte{}
 
-			dataToSave = append(dataToSave, btreeHeader...)
-			dataToSave = append(dataToSave, zerosSpace...)
-			dataToSave = append(dataToSave, allCells...)
-			fmt.Println("save to file")
-			writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+// 			dataToSave = append(dataToSave, btreeHeader...)
+// 			dataToSave = append(dataToSave, zerosSpace...)
+// 			dataToSave = append(dataToSave, allCells...)
+// 			fmt.Println("save to file")
+// 			writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
 
-			createdPage := CreatedPages{
-				pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
-				rowId:     &cell.rowId,
-				savedPAge: dataToSave,
-			}
-			createdPages = append(createdPages, createdPage)
+// 			createdPage := CreatedPages{
+// 				pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
+// 				rowId:     &cell.rowId,
+// 				savedPAge: dataToSave,
+// 			}
+// 			createdPages = append(createdPages, createdPage)
 
-			return nil, createdPages
-		}
-	} else if page.btreeType == int(TableBtreeInteriorCell) {
+// 			return nil, createdPages
+// 		}
+// 	} else if page.btreeType == int(TableBtreeInteriorCell) {
 
-		readPAge := reader.readDbPage(int(binary.BigEndian.Uint32(page.rightMostpointer)))
+// 		readPAge := reader.readDbPage(int(binary.BigEndian.Uint32(page.rightMostpointer)))
 
-		pageParsed := parseReadPage(readPAge, int(binary.BigEndian.Uint32(page.rightMostpointer)))
+// 		pageParsed := parseReadPage(readPAge, int(binary.BigEndian.Uint32(page.rightMostpointer)))
 
-		updatedPage, createdPages = server.updatePage(&pageParsed, int(binary.BigEndian.Uint32(page.rightMostpointer)), reader, writer, valuesToAdd...)
-	}
+// 		updatedPage, createdPages = server.updatePage(&pageParsed, int(binary.BigEndian.Uint32(page.rightMostpointer)), reader, writer, valuesToAdd...)
+// 	}
 
-	if updatedPage == nil {
-		return updatedPage, nil
-	}
-	//FOCUS now on this part
+// 	if updatedPage == nil {
+// 		return updatedPage, nil
+// 	}
+// 	//FOCUS now on this part
 
-	if len(createdPages) == 0 {
-		panic("should never be 0")
-	}
+// 	if len(createdPages) == 0 {
+// 		panic("should never be 0")
+// 	}
 
-	//
-	// what in the case we need to
+// 	//
+// 	// what in the case we need to
 
-	cellToAdd := page.rightMostpointer
-	rowId := createdPages[0].rowId
-	if *rowId > 127 {
-		panic("implement when row id greater than 127")
-	}
-	if len(cellToAdd) > 0 {
-		cellToAdd = append(cellToAdd, byte(*rowId))
-	}
+// 	cellToAdd := page.rightMostpointer
+// 	rowId := createdPages[0].rowId
+// 	if *rowId > 127 {
+// 		panic("implement when row id greater than 127")
+// 	}
+// 	if len(cellToAdd) > 0 {
+// 		cellToAdd = append(cellToAdd, byte(*rowId))
+// 	}
 
-	btreeLeftCellHeaderLength := 12
-	spaceAvilable := page.startCellContentArea - btreeLeftCellHeaderLength - len(page.pointers)
-	newPointerLength := 2
-	newCellSpace := len(cellToAdd) + newPointerLength
+// 	btreeLeftCellHeaderLength := 12
+// 	spaceAvilable := page.startCellContentArea - btreeLeftCellHeaderLength - len(page.pointers)
+// 	newPointerLength := 2
+// 	newCellSpace := len(cellToAdd) + newPointerLength
 
-	if spaceAvilable >= newCellSpace {
-		btreeHeader := updateBtreeHeaderLeafTableIntoInterior(page.rightMostpointer, page)
-		//fits into page
-		allCells := cellToAdd
-		allCells = append(allCells, page.cellArea...)
-		// Zeros data
-		zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
-		zerosSpace := make([]byte, zerosLength)
-		//General method to save the daata to disk i guess
-		dataToSave := []byte{}
-		if page.dbHeaderSize > 0 {
-			dataToSave = append(dataToSave, assembleDbHeader(page.dbHeader)...)
-		}
-		dataToSave = append(dataToSave, btreeHeader...)
-		dataToSave = append(dataToSave, zerosSpace...)
-		dataToSave = append(dataToSave, allCells...)
+// 	if spaceAvilable >= newCellSpace {
+// 		btreeHeader := updateBtreeHeaderLeafTableIntoInterior(page.rightMostpointer, page)
+// 		//fits into page
+// 		allCells := cellToAdd
+// 		allCells = append(allCells, page.cellArea...)
+// 		// Zeros data
+// 		zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
+// 		zerosSpace := make([]byte, zerosLength)
+// 		//General method to save the daata to disk i guess
+// 		dataToSave := []byte{}
+// 		if page.dbHeaderSize > 0 {
+// 			dataToSave = append(dataToSave, assembleDbHeader(page.dbHeader)...)
+// 		}
+// 		dataToSave = append(dataToSave, btreeHeader...)
+// 		dataToSave = append(dataToSave, zerosSpace...)
+// 		dataToSave = append(dataToSave, allCells...)
 
-		// updatedPage = pageData
-		writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
-		//TODO fix passing rowID
+// 		// updatedPage = pageData
+// 		writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+// 		//TODO fix passing rowID
 
-		return dataToSave, nil
+// 		return dataToSave, nil
 
-	} else {
-		btreeHeader := updateBtreeHeaderLeafTableIntoInterior(page.rightMostpointer, page)
-		allCells := []byte{}
-		allCells = append(allCells, page.cellArea...)
-		// Zeros data
-		zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
-		zerosSpace := make([]byte, zerosLength)
-		//General method to save the daata to disk i guess
-		dataToSave := []byte{}
-		if page.dbHeaderSize > 0 {
-			dataToSave = append(dataToSave, assembleDbHeader(page.dbHeader)...)
-		}
-		dataToSave = append(dataToSave, btreeHeader...)
-		dataToSave = append(dataToSave, zerosSpace...)
-		dataToSave = append(dataToSave, allCells...)
+// 	} else {
+// 		btreeHeader := updateBtreeHeaderLeafTableIntoInterior(page.rightMostpointer, page)
+// 		allCells := []byte{}
+// 		allCells = append(allCells, page.cellArea...)
+// 		// Zeros data
+// 		zerosLength := PageSize - page.dbHeaderSize - len(btreeHeader) - len(allCells)
+// 		zerosSpace := make([]byte, zerosLength)
+// 		//General method to save the daata to disk i guess
+// 		dataToSave := []byte{}
+// 		if page.dbHeaderSize > 0 {
+// 			dataToSave = append(dataToSave, assembleDbHeader(page.dbHeader)...)
+// 		}
+// 		dataToSave = append(dataToSave, btreeHeader...)
+// 		dataToSave = append(dataToSave, zerosSpace...)
+// 		dataToSave = append(dataToSave, allCells...)
 
-		//TODO fix passing rowid
-		writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
-		//TODO fix passing rowID
-		rowId := 0
-		createdPage := CreatedPages{
-			pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
-			rowId:     &rowId,
-			savedPAge: dataToSave,
-		}
-		createdPages = append(createdPages, createdPage)
+// 		//TODO fix passing rowid
+// 		writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+// 		//TODO fix passing rowID
+// 		rowId := 0
+// 		createdPage := CreatedPages{
+// 			pointer:   intToBinary(server.firstPage.dbHeader.dbSizeInPages-1, 4),
+// 			rowId:     &rowId,
+// 			savedPAge: dataToSave,
+// 		}
+// 		createdPages = append(createdPages, createdPage)
 
-		return nil, createdPages
+// 		return nil, createdPages
 
-	}
+// 	}
 
-}
+// }
 
 // func updatePage(cell CreateCell, parsedData *PageParsed, rootPage *PageParsed) []byte {
 
@@ -764,16 +799,70 @@ func (server *ServerStruct) updatePage(page *PageParsed, pageNumber int, reader 
 
 // }
 
+func EncodeVarint(n uint64) []byte {
+	var groups []byte
+
+	// Always append at least one group.
+	groups = append(groups, byte(n&0x7F))
+	n >>= 7
+
+	// Extract 7-bit groups.
+	for n > 0 {
+		groups = append(groups, byte(n&0x7F))
+		n >>= 7
+	}
+
+	// Reverse the groups to convert from little-endian (LSB first)
+	// to big-endian (most-significant group first).
+	for i, j := 0, len(groups)-1; i < j; i, j = i+1, j-1 {
+		groups[i], groups[j] = groups[j], groups[i]
+	}
+
+	// For every byte except the last, set the continuation flag.
+	for i := 0; i < len(groups)-1; i++ {
+		groups[i] |= 0x80
+	}
+
+	return groups
+}
+
+// DecodeVarint decodes a byte slice encoded in SQLite's varint format
+// back into a uint64. It also returns the number of bytes read.
+func DecodeVarint(data []byte) (uint64, int) {
+	var n uint64
+	var bytesRead int
+
+	for i, b := range data {
+		// For the first 8 bytes, each contributes 7 bits.
+		if i < 8 {
+			n = (n << 7) | uint64(b&0x7F)
+			bytesRead++
+			// If the continuation flag is not set, we're done.
+			if b&0x80 == 0 {
+				return n, bytesRead
+			}
+		} else {
+			// The 9th byte contains 8 bits of data.
+			n = (n << 8) | uint64(b)
+			bytesRead++
+			return n, bytesRead
+		}
+	}
+	return n, bytesRead
+}
+
 func calculateTextLength(value string) []byte {
 
 	stringLen := 2*len(value) + 13
 
-	if stringLen <= 255 {
-		return []byte{byte(uint8(stringLen))}
-	} else {
-		//TODO: implement this
-		panic("implement calculate text length")
-	}
+	return EncodeVarint(uint64(stringLen))
+
+	// if stringLen <= 127 {
+	// 	return []byte{byte(uint8(stringLen))}
+	// } else {
+	// 	//TODO: implement this
+	// 	panic("implement calculate text length")
+	// }
 }
 
 func createCell(btreeType BtreeType, latestRow *PageParsed, values ...interface{}) CreateCell {

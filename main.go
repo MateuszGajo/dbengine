@@ -140,6 +140,7 @@ func main() {
 	exectueCommand(input)
 	input = "CREATE TABLE user2 (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
+
 	// input = "INSERT INTO user (name) values('Alice')"
 	// exectueCommand(input)
 
