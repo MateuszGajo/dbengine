@@ -296,9 +296,6 @@ func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, in
 	writer := NewWriter()
 	pageToInsertData, pageNumber := server.findPageToInsertData(*reader, 0)
 
-	fmt.Println("hello root page")
-	fmt.Printf("%+v", pageToInsertData)
-
 	cell := createCell(BtreeType(pageToInsertData.btreeType), pageToInsertData, values...)
 
 	isSpace := server.checkIfThereIsSpace(cell, *pageToInsertData)
@@ -321,90 +318,158 @@ func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, in
 
 	// if page 0 and there is space witohut header, create 0x05 move header then and update 0x0d moving it to last page
 	if pageNumber == 0 && server.checkIfThereIsSpaceWithoutHeader(cell, *pageToInsertData) {
-		header := pageToInsertData.dbHeader
+		fmt.Println("Shouldn't be here?")
+		fmt.Println("Shouldn't be here?")
+		fmt.Println("Shouldn't be here?")
+		fmt.Println(cell.dataLength)
+
 		// strip header
 		pageToInsertData.dbHeader = DbHeader{}
 		pageToInsertData.dbHeaderSize = 0
 
-		writer.writeToFile(assembleDbPage(*pageToInsertData), pageToInsertData.dbHeader.dbSizeInPages, server.conId, pageToInsertData)
+		fmt.Println("save to which page??")
+		fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
 
-		interiorPage := server.createNewInteriorPage(intToBinary(pageToInsertData.dbHeader.dbSizeInPages, 4))
-		interiorPage.dbHeader = header
+		server.insertData(cell, pageToInsertData)
+		dataSavedOnPage := server.firstPage.dbHeader.dbSizeInPages
+		writer.writeToFile(assembleDbPage(*pageToInsertData), server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+
+		interiorPage := server.createNewInteriorPage(intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4))
+		interiorPage.dbHeader = server.firstPage.dbHeader
 		interiorPage.dbHeaderSize = 100
 
 		writer.writeToFile(assembleDbPage(*interiorPage), 0, server.conId, interiorPage)
 
-		return pageToInsertData, pageToInsertData.dbHeader.dbSizeInPages
+		return pageToInsertData, dataSavedOnPage
 	}
 
-	// if find interior page, that means it has header in correct page, we need only to add new leaf page at the end and point to it
-	interiorPage, pageNumber := server.findPointerInteriorPageWithAvilableSpace(0)
-	if interiorPage != nil {
-		fmt.Println("that condition???")
-		fmt.Println("that condition???")
-		fmt.Println("that condition???")
+	lastInteriorPage, pageNumber := server.findLastPointerInteriorPageWithAvilableSpace(0)
+	// Available space + its tree before 0x0d
+	if lastInteriorPage != nil && pageNumber == 0 {
+		fmt.Println("enter here??")
+		fmt.Println("enter here??")
+		fmt.Println("enter here??")
+		fmt.Println("enter here??")
 
 		leafPage := server.createNewLeafPage()
 
-		fmt.Println("empty leaft page")
-		fmt.Println(leafPage)
 		server.insertData(cell, leafPage)
 
 		dataToSave := assembleDbPage(*leafPage)
 
 		writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
 
-		fmt.Println("take a look at interior page")
-		fmt.Printf("%+v", interiorPage)
-		fmt.Println("pointer")
-		fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
+		server.insertPointerIntoInteriorPage(intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, lastInteriorPage)
 
-		server.insertPointerIntoInteriorPage(intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, interiorPage)
+		dataToSave = assembleDbPage(*lastInteriorPage)
 
-		dataToSave = assembleDbPage(*interiorPage)
-
-		fmt.Println("take a look at interior page")
-		fmt.Printf("%+v", interiorPage)
-		fmt.Printf("\n save to page number")
-		fmt.Println(pageNumber)
 		writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
 
 		return leafPage, server.firstPage.dbHeader.dbSizeInPages
 	}
 
+	fmt.Println("last page")
+	fmt.Println("last page")
+	fmt.Println("last page")
+	fmt.Println("last page")
+
+	// Recursively lookin for 0x05 and splitting if needed
+
+	// here we have two condition:
+	// 1. only one 0x0d page that is full
+	// 2. two page 0x05 is ful ladn 0x0d is full
+
 	// if not find interior page, current 0x0d move at the end,  we need to insert it as page 0 so we need to copy header, create 0x05 page with header, and create new 0x0d
 	// current page can be 0x05 with no space, or 0x0d, we need to move it at the end, does it matter which one is it, i think no
-
-	interiorPage2 := server.createNewInteriorPage(intToBinary(pageToInsertData.dbHeader.dbSizeInPages, 4))
-	interiorPage2.dbHeader = pageToInsertData.dbHeader
-	interiorPage2.dbHeaderSize = 100
-
-	writer.writeToFile(assembleDbPage(*interiorPage2), 0, server.conId, &PageParsed{})
-
-	pageToInsertData.dbHeader = DbHeader{}
-	pageToInsertData.dbHeaderSize = 0
-
-	writer.writeToFile(assembleDbPage(*pageToInsertData), pageToInsertData.dbHeader.dbSizeInPages, server.conId, interiorPage2)
-	pageToInsertData = interiorPage2
-	pageToInsertData.dbHeader.dbSizeInPages++
 
 	leafPage := server.createNewLeafPage()
 	server.insertData(cell, leafPage)
 
 	dataToSave := assembleDbPage(*leafPage)
+	dataSavedOnPage := server.firstPage.dbHeader.dbSizeInPages
+	fmt.Println("hello page?")
+	fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
+	writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
 
-	writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+	fmt.Println("before recusirve")
 
-	err := server.insertPointerIntoInteriorPage(intToBinary(pageToInsertData.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, interiorPage)
+	server.recursivelyUpdateInteriorPage(0, intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4), cell.rowId)
 
-	if err != nil {
-		panic(err)
+	return leafPage, dataSavedOnPage
+}
+
+func (server *ServerStruct) recursivelyUpdateInteriorPage(pageNumber int, rightMostPointer []byte, rowId int) ([]byte, int) {
+
+	page := server.reader.readDbPage(pageNumber)
+	if len(page) != PageSize {
+		panic("page should be always PageSize length")
+	}
+	parsedPage := parseReadPage(page, pageNumber)
+
+	if parsedPage.btreeType == int(TableBtreeLeafCell) {
+		return rightMostPointer, rowId
 	}
 
-	dataToSave = assembleDbPage(*interiorPage2)
-	writer.writeToFile(dataToSave, 0, server.conId, interiorPage2)
+	newPageNumber := binary.BigEndian.Uint32(parsedPage.rightMostpointer)
 
-	return leafPage, pageToInsertData.dbHeader.dbSizeInPages
+	rightMostPointer, rowId = server.recursivelyUpdateInteriorPage(int(newPageNumber), rightMostPointer, rowId)
+
+	if rightMostPointer == nil {
+		return nil, 0
+	}
+
+	isSpace := server.checkIfThereIsSpace(CreateCell{dataLength: 6}, parsedPage)
+
+	fmt.Println("parsed paged??")
+	fmt.Printf("%+v", parsedPage)
+
+	if isSpace {
+		fmt.Println("cond 1")
+		server.insertPointerIntoInteriorPage(rightMostPointer, rowId, &parsedPage)
+
+		dataToSave := assembleDbPage(parsedPage)
+
+		server.writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
+		return nil, 0
+
+	}
+
+	if pageNumber != 0 {
+		fmt.Println("cond 2")
+		page := server.createNewInteriorPage(rightMostPointer)
+
+		dataToSave := assembleDbPage(*page)
+
+		server.writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+
+		return intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4), rowId - 1
+	}
+	fmt.Println("cond 3")
+
+	interiorPage := server.createNewInteriorPage(intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4))
+	fmt.Println("cond 3.1")
+	interiorPage.dbHeader = server.firstPage.dbHeader
+	interiorPage.dbHeaderSize = 100
+	fmt.Println("cond 3.2")
+	server.firstPage = *interiorPage
+	fmt.Println("cond 3.3")
+	fmt.Println(interiorPage.dbHeader)
+
+	dataToSave := assembleDbPage(*interiorPage)
+	fmt.Println("cond 3.4")
+
+	server.writer.writeToFile(dataToSave, 0, server.conId, &server.firstPage)
+	fmt.Println("cond 3.5")
+
+	parsedPage.dbHeader = DbHeader{}
+	parsedPage.dbHeaderSize = 0
+
+	dataToSave = assembleDbPage(parsedPage)
+
+	server.writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
+
+	return nil, 0
+
 }
 
 func (server *ServerStruct) insertPointerIntoInteriorPage(rightMostPointer []byte, rowId int, page *PageParsed) error {
@@ -431,31 +496,28 @@ func (server *ServerStruct) insertPointerIntoInteriorPage(rightMostPointer []byt
 
 }
 
-func (server *ServerStruct) findPointerInteriorPageWithAvilableSpace(pageNumber int) (*PageParsed, int) {
-	fmt.Println("hello page nubmer")
-	fmt.Println(pageNumber)
+func (server *ServerStruct) findLastPointerInteriorPageWithAvilableSpace(pageNumber int) (*PageParsed, int) {
+
 	page := server.reader.readDbPage(pageNumber)
 	parsedPage := parseReadPage(page, pageNumber)
-	fmt.Println("hello page nubmer")
-	fmt.Println(pageNumber)
+
 	if parsedPage.btreeType == int(TableBtreeLeafCell) {
-		return nil, 0
+		return &parsedPage, 0
 	}
 	newPageNumber := binary.BigEndian.Uint32(parsedPage.rightMostpointer)
 
-	previousPage, previousPageNumber := server.findPointerInteriorPageWithAvilableSpace(int(newPageNumber))
+	previousPage, _ := server.findLastPointerInteriorPageWithAvilableSpace(int(newPageNumber))
 
-	if previousPage != nil {
-		return previousPage, previousPageNumber
-	}
+	if previousPage.btreeType == int(TableBtreeLeafCell) {
 
-	btreeLeftCellHeaderLength := 12
-	spaceAvilable := parsedPage.startCellContentArea - btreeLeftCellHeaderLength - len(parsedPage.pointers) - parsedPage.dbHeaderSize
-	newPointerLength := 2
-	cellDataLength := 6
-	newCellSpace := cellDataLength + newPointerLength
-	if spaceAvilable >= newCellSpace {
-		return &parsedPage, pageNumber
+		btreeLeftCellHeaderLength := 12
+		spaceAvilable := parsedPage.startCellContentArea - btreeLeftCellHeaderLength - len(parsedPage.pointers) - parsedPage.dbHeaderSize
+		newPointerLength := 2
+		cellDataLength := 6
+		newCellSpace := cellDataLength + newPointerLength
+		if spaceAvilable >= newCellSpace {
+			return &parsedPage, pageNumber
+		}
 	}
 
 	return nil, 0
@@ -487,6 +549,7 @@ func (server *ServerStruct) findPageToInsertData(reader PageReader, pageNumber i
 	if len(page) == 0 {
 		panic("should never occur")
 	}
+
 	parsedPage := parseReadPage(page, pageNumber)
 	if parsedPage.btreeType == int(TableBtreeLeafCell) {
 		return &parsedPage, pageNumber
@@ -510,10 +573,22 @@ func (server *ServerStruct) findPageToInsertData(reader PageReader, pageNumber i
 // check if there is first page
 // then what ???
 func (server *ServerStruct) checkIfThereIsSpace(cell CreateCell, page PageParsed) bool {
-	btreeLeftCellHeaderLength := 8
-	spaceAvilable := page.startCellContentArea - btreeLeftCellHeaderLength - len(page.pointers) - page.dbHeaderSize
+	btreeHeaderLength := 8
+	if page.btreeType == int(TableBtreeInteriorCell) {
+		btreeHeaderLength = 12
+	}
+	spaceAvilable := page.startCellContentArea - btreeHeaderLength - len(page.pointers) - page.dbHeaderSize
 	newPointerLength := 2
 	newCellSpace := cell.dataLength + newPointerLength
+
+	fmt.Println("Start cell content area??")
+	fmt.Println(page.startCellContentArea)
+
+	fmt.Println("pointers??")
+	fmt.Println(len(page.pointers))
+
+	fmt.Println("space available?")
+	fmt.Println(spaceAvilable)
 	return spaceAvilable >= newCellSpace
 }
 
@@ -522,6 +597,14 @@ func (server *ServerStruct) checkIfThereIsSpaceWithoutHeader(cell CreateCell, pa
 	spaceAvilable := page.startCellContentArea - btreeLeftCellHeaderLength - len(page.pointers)
 	newPointerLength := 2
 	newCellSpace := cell.dataLength + newPointerLength
+
+	fmt.Println("start content area")
+	fmt.Println(page.startCellContentArea)
+
+	fmt.Println("cell space needed")
+	fmt.Println(newCellSpace)
+	fmt.Println("space avilable")
+	fmt.Println(spaceAvilable)
 	return spaceAvilable >= newCellSpace
 }
 

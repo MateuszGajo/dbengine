@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"reflect"
 	"strconv"
 )
 
@@ -212,6 +213,11 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	var dbHeaderSize int = 0
 	if dbPage == 0 {
 		//Skip header for now
+		if !reflect.DeepEqual(dataToParse[:16], []byte("SQLite format 3\000")) {
+			fmt.Println(dataToParse[:16])
+			fmt.Println(string(dataToParse[:16]))
+			panic("header on page 0 should start with sqlite format....")
+		}
 		dataToParse = dataToParse[100:]
 		dbHeader = parseDbHeader(data[:100])
 		dbHeaderSize = 100
@@ -219,6 +225,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 
 	btreeType := dataToParse[0]
 	isPointerValue := btreeType == 0x05
+
 	if btreeType != 0x05 && btreeType != 0x0d {
 		panic("implement this btree types")
 	}
@@ -244,8 +251,9 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	startCellContentAreaInt := binary.BigEndian.Uint16(startCellContentArea)
 	startCellContentAreaBigEndian := binary.BigEndian.Uint16(startCellContentArea)
 	fragmenetedArea := dataToParse[7]
-	var rightMostPointer []byte
+	var rightMostPointer []byte = []byte{}
 	if isPointerValue {
+		fmt.Println("is right pointer")
 		rightMostPointer = dataToParse[8:12]
 		dataToParse = dataToParse[12:]
 	} else {
@@ -254,8 +262,11 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 
 	var pointers []byte
 
-	for len(dataToParse) > 2 {
-		fmt.Println("pointers???")
+	for i := 0; i < numberofCellsInt; i++ {
+		if len(dataToParse) < 2 {
+			panic("should never happend this")
+		}
+		// fmt.Println("pointers???")
 		pointer := dataToParse[:2]
 		if pointer[0] == 0 && pointer[1] == 0 {
 			break

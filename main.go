@@ -98,6 +98,7 @@ func exectueCommand(input string) {
 		conId:    conId,
 		dbInfo:   DbInfo{},
 		reader:   NewReader(conId),
+		writer:   NewWriter(),
 	}
 
 	data := NewReader(server.conId).readDbPage(0)
@@ -126,6 +127,7 @@ type ServerStruct struct {
 	conId     string
 	dbInfo    DbInfo
 	reader    *PageReader
+	writer    *WriterStruct
 }
 
 func main() {

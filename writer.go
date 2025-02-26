@@ -25,7 +25,7 @@ func NewWriter() *WriterStruct {
 
 func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage *PageParsed) {
 	writer.WriteToFileWithRetry(data, page, conId)
-
+	fmt.Println("hmm??")
 	if page == 0 {
 		return
 	}
