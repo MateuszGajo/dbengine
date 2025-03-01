@@ -1,25 +1,32 @@
 package main
 
+import "fmt"
+
 func assembleDbPage(page PageParsed) []byte {
 	data := []byte{}
+	fmt.Println("nested 1")
 	if page.dbHeaderSize > 0 {
 		data = append(data, assembleDbHeader(page.dbHeader)...)
 	}
+	fmt.Println("nested 2")
 	data = append(data, byte(page.btreeType))
 	data = append(data, intToBinary(page.freeBlock, 2)...)
 	data = append(data, intToBinary(page.numberofCells, 2)...)
 	data = append(data, intToBinary(page.startCellContentArea, 2)...)
 	data = append(data, byte(page.framgenetedArea))
-
+	fmt.Println("nested 3")
 	if len(page.rightMostpointer) > 0 {
 		data = append(data, page.rightMostpointer...)
 	}
+	fmt.Println("nested 4")
 	data = append(data, page.pointers...)
-
+	fmt.Println("nested 4.1")
 	zerosLen := PageSize - len(data) - len(page.cellArea)
-
+	fmt.Println("zeros length")
+	fmt.Println(zerosLen)
 	data = append(data, make([]byte, zerosLen)...)
 	data = append(data, page.cellArea...)
+	fmt.Println("nested 5")
 
 	return data
 

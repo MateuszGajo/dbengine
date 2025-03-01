@@ -539,7 +539,7 @@ func TestInsertFindPointerInteriorPageWithAvilableSpaceNoPage(t *testing.T) {
 
 	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
 
-	foundPage, _ := server.findLastPointerInteriorPageWithAvilableSpace(0)
+	foundPage, _, _ := server.findLastPointerInteriorPageWithAvilableSpace(0)
 
 	if foundPage != nil {
 		t.Errorf("found page should be nil, insted we got: %v", foundPage)
@@ -582,7 +582,7 @@ func TestInsertFindPointerInteriorPageWithAvilableSpaceFirstPage(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &firstPage)
 
-	foundPage, pageNumber := server.findLastPointerInteriorPageWithAvilableSpace(0)
+	foundPage, pageNumber, _ := server.findLastPointerInteriorPageWithAvilableSpace(0)
 
 	if foundPage == nil {
 		t.Error("found page should not be nill")
@@ -641,7 +641,7 @@ func TestInsertFindPointerInteriorPageWithAvilableSpaceNestedPaged(t *testing.T)
 	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &firstPage)
 	writer.writeToFile(assembleDbPage(thirdPage), 2, "fds", &firstPage)
 
-	foundPage, pageNumber := server.findLastPointerInteriorPageWithAvilableSpace(0)
+	foundPage, pageNumber, _ := server.findLastPointerInteriorPageWithAvilableSpace(0)
 
 	if foundPage == nil {
 		t.Error("found page should not be nill")
@@ -720,7 +720,7 @@ func TestInsertFindPointerInteriorPageWithAvilableSpaceNestedPageFullCapacity(t 
 	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &firstPage)
 	writer.writeToFile(assembleDbPage(thirdPage), 2, "fds", &firstPage)
 
-	foundPage, pageNumber := server.findLastPointerInteriorPageWithAvilableSpace(0)
+	foundPage, pageNumber, _ := server.findLastPointerInteriorPageWithAvilableSpace(0)
 
 	if foundPage == nil {
 		t.Error("found page should not be nill")
@@ -1053,6 +1053,36 @@ func createAFullInteriorPageWitHeader() PageParsed {
 	}
 
 	return page
+}
+
+func createAFullInteriorPage() PageParsed {
+	page := PageParsed{
+		dbHeader:             DbHeader{},
+		dbHeaderSize:         0,
+		cellArea:             []byte{},
+		startCellContentArea: PageSize,
+		numberofCells:        0,
+		pointers:             []byte{},
+		btreeType:            int(TableBtreeInteriorCell),
+		rightMostpointer:     []byte{},
+		latesRow:             &LastPageParseLatestRow{},
+	}
+	server := ServerStruct{
+		firstPage: PageParsed{dbHeader: DbHeader{}},
+		reader:    NewReader("aa"),
+	}
+
+	cellArea := make([]byte, 1014)
+	for i := 0; i < 1014; i++ {
+		cellArea[i] = byte('b')
+	}
+
+	for i := 0; i < 4; i++ {
+		cell := createCell(TableBtreeLeafCell, &PageParsed{latesRow: &LastPageParseLatestRow{rowId: i}}, string(cellArea))
+		server.insertData(cell, &page)
+	}
+
+	return page
 
 }
 
@@ -1141,7 +1171,7 @@ func TestInsertSchemaOnlyOneInteriorAndFullLeafPage(t *testing.T) {
 
 // TODO
 func TestInsertSchemaOneFullLeafPageSpaceAvialableAfterHeaderStrip(t *testing.T) {
-
+	clearDbFile("test")
 	firstPage := createAFullLeafPageWitHeader()
 
 	server := ServerStruct{
@@ -1213,7 +1243,7 @@ func TestInsertSchemaOneFullLeafPageSpaceAvialableAfterHeaderStrip(t *testing.T)
 }
 
 func TestInsertSchemaFullLeafPageAndFullInterior(t *testing.T) {
-
+	clearDbFile("test")
 	firstPage := createAFullInteriorPageWitHeader()
 	firstPage.rightMostpointer = []byte{0, 0, 0, 1}
 	secondPage := createAFullLeafPage()
@@ -1232,11 +1262,6 @@ func TestInsertSchemaFullLeafPageAndFullInterior(t *testing.T) {
 
 	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &server.firstPage)
-
-	fmt.Println("checkpoint 1")
-	fmt.Println(firstPage.dbHeader.dbSizeInPages)
-	fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
-	fmt.Println("checkpoint 1")
 
 	_, parsedQuery := genericParser("CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)")
 
@@ -1272,9 +1297,6 @@ func TestInsertSchemaFullLeafPageAndFullInterior(t *testing.T) {
 	fourthPageRead := server.reader.readDbPage(3)
 	fourthPageReadParsed := parseReadPage(fourthPageRead, 3)
 
-	// fmt.Println("first page parsed")
-	// // fmt.Printf("%+v", firstPageReadParsed)
-
 	if firstPageReadParsed.numberofCells != 0 {
 		t.Errorf("expected to have new interior page with only one cell, insted we got: %v", firstPageReadParsed.numberofCells)
 	}
@@ -1304,4 +1326,106 @@ func TestInsertSchemaFullLeafPageAndFullInterior(t *testing.T) {
 
 }
 
-// func TestLeafWithAvaiableSpaceAndFullInterior() {}
+func TestMultipleFullLeafPage(t *testing.T) {
+	clearDbFile("test")
+	firstPage := createAFullInteriorPageWitHeader()
+	firstPage.rightMostpointer = []byte{0, 0, 0, 1}
+	secondPage := createAFullInteriorPage()
+	secondPage.rightMostpointer = []byte{0, 0, 0, 2}
+	thirdPage := createAFullLeafPage()
+
+	server := ServerStruct{
+		firstPage: firstPage,
+		reader:    NewReader("aa"),
+		writer:    NewWriter(),
+	}
+
+	writer := NewWriter()
+
+	writer.writeToFile(assembleDbPage(firstPage), 0, "fds", &server.firstPage)
+	writer.writeToFile(assembleDbPage(secondPage), 1, "fds", &server.firstPage)
+	writer.writeToFile(assembleDbPage(thirdPage), 2, "fds", &server.firstPage)
+
+	_, parsedQuery := genericParser("CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)")
+	createSqlQueryData := parseCreateTableQuery(parsedQuery, "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)")
+	pointer := 0
+
+	cell := createCell(TableBtreeLeafCell, nil, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointer, createSqlQueryData.rawQuery)
+	fmt.Println("checkpoint 2")
+	insertedPage, pageNumber := server.insertSchema(string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointer, createSqlQueryData.rawQuery)
+	fmt.Println("test??")
+	if pageNumber != 3 {
+		t.Errorf("Should append data to exisitng page: %v, instead we got :%v", 3, pageNumber)
+	}
+
+	if insertedPage.numberofCells != 1 {
+		t.Errorf("expected number of cell to be: %v, we got: %v", 1, insertedPage.numberofCells)
+	}
+
+	if !reflect.DeepEqual(cell.data, insertedPage.cellArea) {
+		t.Errorf("expected cell area to be: %v, instead we got: %v", cell.data, insertedPage.cellArea)
+	}
+
+	firstPageRead := server.reader.readDbPage(0)
+	firstPageReadParsed := parseReadPage(firstPageRead, 0)
+
+	secondPageRead := server.reader.readDbPage(1)
+	secondPageReadParsed := parseReadPage(secondPageRead, 1)
+
+	fourthPageRead := server.reader.readDbPage(3)
+	fourthPageReadParsed := parseReadPage(fourthPageRead, 3)
+
+	fifthPageRead := server.reader.readDbPage(4)
+	fifthPageReadParsed := parseReadPage(fifthPageRead, 4)
+
+	// There is problem with saving last page
+
+	sixthPageRead := server.reader.readDbPage(5)
+	sixthPageReadParsed := parseReadPage(sixthPageRead, 5)
+
+	// fmt.Println("fifth")
+	// fmt.Printf("%+v", sixthPageReadParsed)
+
+	// fmt.Println("six page")
+	// fmt.Printf("%+v", sixthPageReadParsed)
+
+	if fourthPageReadParsed.btreeType != int(TableBtreeLeafCell) {
+		t.Errorf("Expected fourth page header to be: %v, insted we got: %v", TableBtreeLeafCell, fourthPageReadParsed.btreeType)
+	}
+
+	if fifthPageReadParsed.btreeType != int(TableBtreeInteriorCell) {
+		t.Errorf("Expected fourth page header to be: %v, insted we got: %v", TableBtreeInteriorCell, fifthPageReadParsed.btreeType)
+	}
+
+	if sixthPageReadParsed.btreeType != int(TableBtreeInteriorCell) {
+		t.Errorf("Expected fourth page header to be: %v, insted we got: %v", TableBtreeInteriorCell, sixthPageReadParsed.btreeType)
+	}
+
+	// fmt.Println("parsed")
+	// fmt.Printf("%+v", thirdPageReadParsed)
+
+	if firstPageReadParsed.btreeType != int(TableBtreeInteriorCell) {
+		t.Errorf("Expected header to be: %v, got: %v", TableBtreeInteriorCell, firstPageReadParsed.btreeType)
+	}
+
+	if firstPageReadParsed.numberofCells != 0 {
+		t.Errorf("Expected %v cells, got: %v", 0, firstPageReadParsed.numberofCells)
+	}
+
+	if !reflect.DeepEqual(firstPageReadParsed.rightMostpointer, []byte{0, 0, 0, 5}) {
+		t.Errorf("expected pointer to be: %v, got: %v", []byte{0, 0, 0, 5}, firstPageReadParsed.rightMostpointer)
+	}
+
+	if fourthPageReadParsed.numberofCells != 1 {
+		t.Errorf("expected fourth page to have only number of cells: %v, we got: %v", 1, fourthPageReadParsed.numberofCells)
+	}
+
+	if !reflect.DeepEqual(fourthPageReadParsed.cellArea, cell.data) {
+		t.Errorf("expected fourth page to have only number of cells: %v, we got: %v", 1, fourthPageReadParsed.numberofCells)
+	}
+
+	fmt.Println(firstPageReadParsed.rightMostpointer)
+	fmt.Println(secondPageReadParsed.rightMostpointer)
+	fmt.Println(fifthPageReadParsed.rightMostpointer)
+	fmt.Println(sixthPageReadParsed.rightMostpointer)
+}

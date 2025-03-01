@@ -292,13 +292,16 @@ type CreatedPages struct {
 // }
 
 func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, int) {
+	fmt.Println("checkpoint1111")
 	reader := NewReader(server.conId)
 	writer := NewWriter()
 	pageToInsertData, pageNumber := server.findPageToInsertData(*reader, 0)
+	fmt.Println("checkpoint2222")
 
 	cell := createCell(BtreeType(pageToInsertData.btreeType), pageToInsertData, values...)
 
 	isSpace := server.checkIfThereIsSpace(cell, *pageToInsertData)
+	fmt.Println("checkpoint3333")
 
 	//if there is space only need to update page
 	fmt.Println("hello???")
@@ -343,7 +346,11 @@ func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, in
 		return pageToInsertData, dataSavedOnPage
 	}
 
-	lastInteriorPage, pageNumber := server.findLastPointerInteriorPageWithAvilableSpace(0)
+	fmt.Println("hmmmmm")
+	// DEBUG THIS
+	lastInteriorPage, pageNumber, _ := server.findLastPointerInteriorPageWithAvilableSpace(0)
+
+	fmt.Println("hmmmmm22")
 	// Available space + its tree before 0x0d
 	if lastInteriorPage != nil && pageNumber == 0 {
 		fmt.Println("enter here??")
@@ -353,16 +360,21 @@ func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, in
 
 		leafPage := server.createNewLeafPage()
 
+		fmt.Println("checkpoint1")
+
 		server.insertData(cell, leafPage)
 
 		dataToSave := assembleDbPage(*leafPage)
+		fmt.Println("checkpoint2")
 
 		writer.writeToFile(dataToSave, server.firstPage.dbHeader.dbSizeInPages, server.conId, &server.firstPage)
 
+		fmt.Println("checkpoint3")
+
 		server.insertPointerIntoInteriorPage(intToBinary(server.firstPage.dbHeader.dbSizeInPages, 4), leafPage.latesRow.rowId, lastInteriorPage)
-
+		fmt.Println("checkpoint4")
 		dataToSave = assembleDbPage(*lastInteriorPage)
-
+		fmt.Println("checkpoint5")
 		writer.writeToFile(dataToSave, pageNumber, server.conId, &server.firstPage)
 
 		return leafPage, server.firstPage.dbHeader.dbSizeInPages
@@ -412,16 +424,26 @@ func (server *ServerStruct) recursivelyUpdateInteriorPage(pageNumber int, rightM
 
 	newPageNumber := binary.BigEndian.Uint32(parsedPage.rightMostpointer)
 
+	fmt.Println("new page nubmer")
+	fmt.Println("new page nubmer")
+	fmt.Println(newPageNumber)
+	fmt.Println("new page nubmer")
+
 	rightMostPointer, rowId = server.recursivelyUpdateInteriorPage(int(newPageNumber), rightMostPointer, rowId)
+
+	fmt.Println("hello pages")
+	fmt.Println("hello pages")
+
+	fmt.Println(pageNumber)
+	fmt.Println("hello pages")
+	fmt.Println("hello pages")
+	fmt.Println("hello pages")
 
 	if rightMostPointer == nil {
 		return nil, 0
 	}
 
 	isSpace := server.checkIfThereIsSpace(CreateCell{dataLength: 6}, parsedPage)
-
-	fmt.Println("parsed paged??")
-	fmt.Printf("%+v", parsedPage)
 
 	if isSpace {
 		fmt.Println("cond 1")
@@ -496,17 +518,31 @@ func (server *ServerStruct) insertPointerIntoInteriorPage(rightMostPointer []byt
 
 }
 
-func (server *ServerStruct) findLastPointerInteriorPageWithAvilableSpace(pageNumber int) (*PageParsed, int) {
+func (server *ServerStruct) findLastPointerInteriorPageWithAvilableSpace(pageNumber int) (*PageParsed, int, bool) {
 
+	fmt.Println("read")
 	page := server.reader.readDbPage(pageNumber)
+	fmt.Println("before parse")
 	parsedPage := parseReadPage(page, pageNumber)
+	fmt.Println("after parse parse")
+	// fmt.Println(parsedPage)
 
 	if parsedPage.btreeType == int(TableBtreeLeafCell) {
-		return &parsedPage, 0
+		return &parsedPage, 0, false
 	}
+	fmt.Println("read right most pointer")
 	newPageNumber := binary.BigEndian.Uint32(parsedPage.rightMostpointer)
+	fmt.Println("after !!!read right most pointer")
 
-	previousPage, _ := server.findLastPointerInteriorPageWithAvilableSpace(int(newPageNumber))
+	previousPage, pageNumber, foundPage := server.findLastPointerInteriorPageWithAvilableSpace(int(newPageNumber))
+
+	fmt.Println("further")
+	if foundPage {
+		return previousPage, pageNumber, true
+	}
+	if pageNumber == 0 {
+		return nil, 0, false
+	}
 
 	if previousPage.btreeType == int(TableBtreeLeafCell) {
 
@@ -516,11 +552,10 @@ func (server *ServerStruct) findLastPointerInteriorPageWithAvilableSpace(pageNum
 		cellDataLength := 6
 		newCellSpace := cellDataLength + newPointerLength
 		if spaceAvilable >= newCellSpace {
-			return &parsedPage, pageNumber
+			return &parsedPage, pageNumber, true
 		}
 	}
-
-	return nil, 0
+	return &parsedPage, 0, false
 
 }
 
