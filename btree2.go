@@ -2,23 +2,22 @@ package main
 
 import (
 	"fmt"
-	"math"
 )
-
-var maxNumberOfKeys float64 = 0
-var minNumberOfKeys float64 = 0
-
-func aa() {
-	maxNumberOfKeys = math.Floor(float64(PageSize-12) / 8)
-	minNumberOfKeys = math.Floor(maxNumberOfKeys / 2)
-}
 
 // 1. We need sturcutre to have children ranges, and if it index, or if it a cell?
 
+type Index struct {
+	id              int
+	leftPointer     int
+	leftPointerNull bool
+}
+
 type Node struct {
-	indexes    []int
-	leaf       bool
-	isOverflow bool
+	indexes      []Index
+	leaf         bool
+	isOverflow   bool
+	rightPointer int
+	pageNumber   int
 }
 
 // inserting and balancing??
@@ -34,15 +33,15 @@ type Node struct {
 
 /// OVERFLOW state * assuming we can only fit 3 pages in every node
 ///                                     +--------+ Root Node
-///                   +-----------------|   1,2,3,4  |
-///                                    +--------+
+///                  					|1,2,3,4 |
+///                                     +--------+
 
 ///                                     +--------+ Root Node
 ///                   +-----------------|   4   | --------------------
 ///                  /                  +--------+
 ///                 /                                             \
 ///            +-------+                                     +----------+ empty
-///       +----|  1,2,3  |----+                   +------------| 			|------------+
+///       +----|  1,2,3  |----+                 +------------| 			|------------+
 ///      /     +-------+     \                 /             +----------+             \
 ///     /          |          \               /                /      \                \
 
@@ -51,10 +50,11 @@ type Node struct {
 // leaf bias distribution
 
 type Cell struct {
-	size int
+	size   int
+	number int
 }
 
-var usableSpacePerPage = 4
+var usableSpacePerPage = 3
 
 func balance(pageNumber int, parent []PageParsed, node Node) {
 	isRoot := len(parent) == 0
@@ -79,12 +79,155 @@ func balance(pageNumber int, parent []PageParsed, node Node) {
 // sibling redistribution
 
 // WE are missing divider entry, so 3 pages gotes to left page, then fourth one is the root
-func balancingForNode() {
-	cellToDistribute := []Cell{{size: 1}, {size: 1}, {size: 1}, {size: 1}}
+
+// add new page 12
+// start
+
+///                                +-------+
+///                        +-------| 4,8   |-------+                           X
+///                      /        +-------+        \
+///                      /             |             \
+///   			  +----------+  +----------+  +----------+
+///   			  | 1,2,3    |  | 5, 6, 7  |  | 9, 10, 11|
+/// 			  +----------+  +----------+  +----------+
+
+// phse one
+///                                +-------+
+///                        +-------| 4,8,12 |-------+                           X
+///                      /        +-------+        \
+///                      /             |             \
+///   			  +----------+  +----------+  +----------+
+///   			  | 1,2,3    |  | 5, 6, 7  |  | 9, 10, 11|
+/// 			  +----------+  +----------+  +----------+
+
+/// phase two create empty page
+//|                               +-------+
+///                        +-------| 4,8,12 |-------+    -------                        X
+///                      /        +-------+        \			\
+///                      /             |             \			\
+///   			  +----------+  +----------+  +----------+     +---------+
+///   			  | 1,2,3    |  | 5, 6, 7  |  | 9, 10, 11|     |         |
+/// 			  +----------+  +----------+  +----------+     +---------+
+
+/// phase  three: second distribution loop readjust entry
+//|                               +-------+
+///                        +-------| 4,8,12 |-------+    -------                        X
+///                      /        +-------+        \			\
+///                      /             |             \			\
+///   			  +----------+  +----------+  +----------+     +---------+
+///   			  | 1,2,3    |  | 5, 6, 7  |  | 9, 10, 11|     |         |
+/// 			  +----------+  +----------+  +----------+     +---------+
+
+/// end
+//|                               +-------+
+///                        +-------| 4,7,10 |-------+    -------                        X
+///                      /        +-------+        \			\
+///                      /             |             \			\
+///   			  +----------+  +----------+  +----------+     +---------+
+///   			  | 1,2,3    |  | 5,6      |  | 8,9      |     |  11,12   |
+/// 			  +----------+  +----------+  +----------+     +---------+
+
+// func getSiblings() ([][]Cell, []Cell) {
+// 	// Get only like 1 left 1 right sibiling, or sometime 2 left sibling
+// 	divider := []Cell{{size: 1, number: 4}} // 2 divider, betwen first and secopd siblign, betwen second and third
+// 	siblings := [][]Cell{[]Cell{{size: 1, number: 1}, {size: 1, number: 2}, {size: 1, number: 3}}, []Cell{{size: 1, number: 5}, {size: 1, number: 6}, {size: 1, number: 7}, {size: 1, number: 8}}}
+// 	usableSpacePerPage = 3
+// 	return siblings, divider
+// }
+
+func getSiblings() ([][]Cell, []Cell) {
+
+}
+
+func getRootData() []Cell {
+
+}
+
+var rootPageNode = Node{
+	isOverflow: true,
+	leaf:       false,
+}
+
+// we get a page but convert it to node
+// we need to have a middle layer that is gonna translate all this stuff
+//
+
+// func getNode() {
+// 	page := PageParsed{
+
+// 	}
+// }
+
+func balancingForNode(pageNumber int, parents []int) {
+	node := getNode(pageNumber)
+	siblings, divider := getSiblings()
+
+	isRoot := len(parents) == 0
+
+	if !node.isOverflow {
+		return
+	}
+
+	if isRoot {
+		// take root page
+		// insert a new page and move that taken from root and run balancing algoritm
+		root := getRootData()
+		rootPageNode = Node{
+			isOverflow: false,
+		}
+		siblings = [][]Cell{root}
+		divider = []Cell{}
+	}
+	fmt.Println("parents failed??")
+	var parent int
+
+	if len(parents) > 0 {
+
+		parent = parents[len(parents)-1]
+		parents = parents[:len(parents)-1]
+	}
+
+	cellToDistribute := []Cell{}
+	for i, v := range siblings {
+		cellToDistribute = append(cellToDistribute, v...)
+		if i < len(siblings)-1 {
+			fmt.Println("before tratedy")
+			cellToDistribute = append(cellToDistribute, divider[i])
+			fmt.Println("after")
+		}
+	}
+
+	fmt.Println("cells?")
+	fmt.Println(cellToDistribute)
 
 	totalSizeInEachPage, numberOfCellPerPage := leaf_bias(cellToDistribute)
 
+	fmt.Println("leaf bias")
+	fmt.Println(totalSizeInEachPage)
+	fmt.Println(numberOfCellPerPage)
+
 	totalSizeInEachPage, numberOfCellPerPage = accountForUnderflowToardsRight(totalSizeInEachPage, numberOfCellPerPage, cellToDistribute)
+
+	fmt.Println("move to right")
+	fmt.Println(totalSizeInEachPage)
+	fmt.Println(numberOfCellPerPage)
+
+	siblingsLen := len(siblings)
+
+	if len(numberOfCellPerPage) != siblingsLen {
+		// basically allocating new page
+		siblingsLen = len(numberOfCellPerPage)
+	}
+
+	deivider, pages := redistribution(totalSizeInEachPage, numberOfCellPerPage, cellToDistribute, siblingsLen)
+
+	fmt.Println("divider")
+	fmt.Println(deivider)
+	fmt.Println("pager")
+	fmt.Println(pages)
+
+	balancingForNode(parent, parents)
+
 }
 
 func leaf_bias(cells []Cell) ([]int, []int) {
@@ -100,8 +243,8 @@ func leaf_bias(cells []Cell) ([]int, []int) {
 			totalSizeInEachPage[i] += v.size
 			numberOfCellPerPage[i]++
 		} else {
-			totalSizeInEachPage = append(totalSizeInEachPage, v.size)
-			numberOfCellPerPage = append(numberOfCellPerPage, 1)
+			totalSizeInEachPage = append(totalSizeInEachPage, 0)
+			numberOfCellPerPage = append(numberOfCellPerPage, 0)
 		}
 	}
 
@@ -132,28 +275,38 @@ func accountForUnderflowToardsRight(totalSizeInEachPage, numberOfCellPerPage []i
 			divCell--
 		}
 	}
+	// Second page has more data than the first one, make a little
+	// adjustment to keep it left biased.
+
+	if float64(totalSizeInEachPage[0]) < float64(usableSpacePerPage)/2 {
+		fmt.Println("are we entering here?????")
+		numberOfCellPerPage[0] += 1
+		numberOfCellPerPage[1] -= 1
+	}
 
 	return totalSizeInEachPage, numberOfCellPerPage
 }
 
-func redistribution(totalSizeInEachPage, numberOfCellPerPage []int, cellToDistribute []Cell) ([]Cell, [][]Cell) {
+func redistribution(totalSizeInEachPage, numberOfCellPerPage []int, cellToDistribute []Cell, siblingsLength int) ([]Cell, [][]Cell) {
 	dividers := []Cell{}
-	pages := [][]Cell{[]Cell{}, []Cell{}}
+	pages := make([][]Cell, len(numberOfCellPerPage))
 	pageNumber := -1
 	cellIndex := 0
-	siblingsLength := 2 // we allocate two pages for this
-
+	fmt.Println("cells")
+	fmt.Println(cellToDistribute)
 	for i, v := range numberOfCellPerPage {
-		fmt.Println("enter?")
 		pageNumber++
 		for range v {
 			if cellIndex < len(cellToDistribute) {
+				fmt.Println("before tratedy")
 				pages[pageNumber] = append(pages[pageNumber], cellToDistribute[cellIndex])
 				cellIndex++
+				fmt.Println("after tratedy")
 			}
 		}
 
 		if i < siblingsLength-1 {
+
 			if cellIndex >= len(cellToDistribute) {
 				panic("should never occur")
 			}
@@ -165,3 +318,209 @@ func redistribution(totalSizeInEachPage, numberOfCellPerPage []int, cellToDistri
 
 	return dividers, pages
 }
+
+// inserts a new key into key updates the value if keys already exists
+
+// entries are always inserted at leaft nodes. Internal nodes and the root can only grow in size when leaft nodes overflow and siblings cant take any load to kee pthe leaves balanced, causing a split
+
+// lets walk through an exmaple
+// suppose we have the following tree of orde=r, which means each node hold at maxiumum 3 keys and 4 children
+
+/// ```text
+///                             PAGE 0 (ROOT)
+///                              +-------+
+///                          +---|  3,6  |---+
+///                         /    +-------+    \
+///                        /         |         \
+///                   +-------+  +-------+  +-------+
+///                   |  1,2  |  |  4,5  |  |  7,8  |
+///                   +-------+  +-------+  +-------+
+///                     PAGE 1     PAGE 2     PAGE 3
+/// ```
+
+// lets try insert key 9, the inserion alogirthm will call find to the page and index, when new key should be added, it will simply insert the key
+/// ```text
+///                             PAGE 0 (ROOT)
+///                              +-------+
+///                          +---|  3,6  |---+
+///                         /    +-------+    \
+///                        /         |         \
+///                   +-------+  +-------+  +---------+
+///                   |  1,2  |  |  4,5  |  |  7,8,9  |
+///                   +-------+  +-------+  +---------+
+///                     PAGE 1     PAGE 2     PAGE 3
+/// ```
+
+// page 3 has maxiumum number of key if we try to insert now key number 10
+
+///
+/// ```text
+///                             PAGE 0 (ROOT)
+///                              +-------+
+///                          +---|  3,6  |---+
+///                         /    +-------+    \
+///                        /         |         \
+///                   +-------+  +-------+  +----------+
+///                   |  1,2  |  |  4,5  |  | 7,8,9,10 |
+///                   +-------+  +-------+  +----------+
+///                     PAGE 1     PAGE 2      PAGE 3
+/// ```
+/// at the end we need to call balcning algorithm
+
+var pageZero = Node{
+	isOverflow:   false,
+	pageNumber:   0,
+	leaf:         false,
+	indexes:      []Index{{id: 3, leftPointer: 1}, {id: 6, leftPointer: 2}},
+	rightPointer: 3,
+}
+var pageOne = Node{
+	isOverflow: false,
+	pageNumber: 1,
+	leaf:       true,
+	indexes:    []Index{{id: 1, leftPointerNull: true}, {id: 2, leftPointerNull: true}},
+}
+
+var pageTwo = Node{
+	isOverflow: false,
+	pageNumber: 2,
+	leaf:       true,
+	indexes:    []Index{{id: 4, leftPointerNull: true}, {id: 5, leftPointerNull: true}},
+}
+
+var pageThree = Node{
+	isOverflow: false,
+	pageNumber: 3,
+	leaf:       true,
+	indexes:    []Index{{id: 7, leftPointerNull: true}, {id: 8, leftPointerNull: true}},
+}
+
+func getNode2(pageNumber int) Node {
+	if pageNumber == 0 {
+		return pageZero
+	} else if pageNumber == 1 {
+		return pageOne
+	} else if pageNumber == 2 {
+		return pageTwo
+	} else if pageNumber == 3 {
+		return pageThree
+	}
+	panic("shouldn't run this in get")
+}
+
+func updateNode(newNode Node, pageNumber int) {
+	fmt.Println("update page")
+	fmt.Println(pageNumber)
+	if pageNumber == 0 {
+		pageZero = newNode
+		return
+	} else if pageNumber == 1 {
+		pageOne = newNode
+		return
+	} else if pageNumber == 2 {
+		pageTwo = newNode
+		return
+	} else if pageNumber == 3 {
+		pageThree = newNode
+		return
+	}
+	panic("shouldn't run this in updsae")
+}
+
+func insert(entry int) {
+	ok, _, node := search(0, []int{}, entry)
+
+	if ok {
+		// update condition
+		// node.value = new value form entry
+		fmt.Println("updated node value!!!")
+
+		return
+	}
+	// insert condition
+
+	node.indexes = append(node.indexes, Index{id: entry})
+
+	if len(node.indexes) > int(usableSpacePerPage) {
+		node.isOverflow = true
+	}
+	updateNode(node, node.pageNumber)
+
+	fmt.Println("nodes")
+	fmt.Printf("%+v \n", pageZero)
+	fmt.Printf("%+v \n", pageOne)
+	fmt.Printf("%+v \n", pageTwo)
+	fmt.Printf("%+v \n", pageThree)
+}
+
+// Search algorithm
+// 1. Read the subtree node into memory
+// 2. Run a binary search on the entries to find the given key.
+// 3. IF successful, return the result
+// 4. If not, the binary search result will tell us which child to pick for
+
+//  find key 9 in this tree, located at page 5
+
+///
+/// ```text
+///                             PAGE 0
+///                           +--------+
+///                   +-------|   11   |-------+
+///                  /        +--------+        \
+///                 /                            \
+///            +-------+ PAGE 1              +--------+
+///       +----|  4,8  |----+                |   14   |
+///      /     +-------+     \               +--------+
+///     /          |          \               /      \
+/// +-------+  +-------+  +-------+     +-------+  +-------+
+/// | 1,2,3 |  | 5,6,7 |  | 9,10  |     | 12,13 |  | 15,16 |
+/// +-------+  +-------+  +-------+     +-------+  +-------+
+///  PAGE 3     PAGE 4      PAGE 5
+
+// first iteration
+// 1. read page 0 into memory
+// 2. binary search on page result in err(not found)
+// 3. read index 0 using page.child and recurse into the result
+
+// second iteraion
+// 1. read page 1 into memroy
+// 2. binary search result in err
+// 3. read child pointer at index 3, and recurse again
+
+// final iteration
+// 1. read page 5 into memory
+// 2. binary search reuslt it ok
+// 3. done, return result
+
+func search(pageNumber int, parents []int, entry int) (bool, int, Node) {
+	ok, result, node := binary_search(pageNumber, entry)
+
+	fmt.Println("result")
+	fmt.Println(ok)
+	fmt.Println(result)
+	if !ok && node.leaf {
+		fmt.Println("didnt find what we are looking for")
+		return false, 0, node
+	}
+	if ok {
+		return ok, result, node
+	}
+
+	return search(result, parents, entry)
+
+}
+
+func binary_search(pageNumber int, entry int) (bool, int, Node) {
+	node := getNode2(pageNumber)
+
+	for i := 0; i < len(node.indexes); i++ {
+		if entry == node.indexes[i].id {
+			return true, node.indexes[i].id, node
+		} else if entry < node.indexes[i].id {
+			return false, node.indexes[i].leftPointer, node
+		}
+	}
+	return false, node.rightPointer, node
+}
+
+// binary searhc???, just basically iterate over celll

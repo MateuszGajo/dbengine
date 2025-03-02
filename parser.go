@@ -60,6 +60,7 @@ type PageParsed struct {
 	pointers             []byte
 	cellArea             []byte
 	latesRow             *LastPageParseLatestRow
+	isOverflow           bool
 }
 
 type PageParseColumn struct {
