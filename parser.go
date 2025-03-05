@@ -48,6 +48,11 @@ type CreateActionQueryData struct {
 	rawQuery   string
 }
 
+type Divider struct {
+	page  int
+	rowid int
+}
+
 type PageParsed struct {
 	dbHeader             DbHeader // only for first page
 	dbHeaderSize         int
@@ -59,8 +64,64 @@ type PageParsed struct {
 	rightMostpointer     []byte
 	pointers             []byte
 	cellArea             []byte
+	cellAreaParsed       [][]byte
 	latesRow             *LastPageParseLatestRow
 	isOverflow           bool
+	leftSibling          *int
+	rightSiblisng        *int
+	divider              []Divider
+	pageNumber           int
+	isLeaf               bool
+}
+
+func getDivider(pageNumber int) (Divider, int, int) {
+	page := PageParsed{}
+
+	if page.btreeType != int(TableBtreeInteriorCell) {
+		panic("onyl divider for interior cell tree")
+	}
+	i := 0
+	for i < len(page.cellArea) {
+		pointer := page.cellArea[i : i+6]
+		pointerPageNumber := binary.BigEndian.Uint32(pointer[:4])
+
+		if int(pointerPageNumber) == pageNumber {
+			return Divider{
+				page:  pageNumber,
+				rowid: int(binary.BigEndian.Uint16(pointer[4:])),
+			}, i, i + 6
+		}
+
+		i += 6
+	}
+
+	panic("didnt find divider")
+}
+
+// focus on this test it etc
+
+func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int) Divider {
+	page := PageParsed{}
+
+	if page.btreeType != int(TableBtreeInteriorCell) {
+		panic("onyl divider for interior cell tree")
+	}
+	contentAreaFirst := page.cellArea[:startIndex]
+	contentAreaSecond := page.cellArea[:endIndex]
+	for _, v := range cells {
+		newPointer := intToBinary(v.pageNumber, 4)
+		newPointer = append(newPointer, intToBinary(v.rowId, 2)...)
+		contentAreaFirst = append(contentAreaFirst, newPointer...)
+	}
+	contentAreaFirst = append(contentAreaFirst, contentAreaSecond...)
+
+	// check if cell area overflow page
+	if true {
+		page.isOverflow = true
+	}
+
+	panic("didnt find divider")
+
 }
 
 type PageParseColumn struct {

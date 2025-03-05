@@ -5,7 +5,7 @@ import (
 )
 
 func TestLeaftBiasDistribution(t *testing.T) {
-	balancingForNode(5, []int{0})
+	balancingForNode(1, []int{0})
 
 	t.Errorf("test")
 

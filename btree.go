@@ -956,7 +956,7 @@ func DecodeVarint(data []byte) (uint64, int) {
 			n = (n << 7) | uint64(b&0x7F)
 			bytesRead++
 			// If the continuation flag is not set, we're done.
-			if b&0x80 == 0 {
+			if b&0x80 == 0 && i == 7 {
 				return n, bytesRead
 			}
 		} else {
