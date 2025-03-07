@@ -142,8 +142,11 @@ var rootPageNode = Node{
 var zeroPage = PageParsed{
 	dbHeader:         header(),
 	dbHeaderSize:     100,
+	pageNumber:       0,
 	cellAreaParsed:   [][]byte{},
-	rightMostpointer: []byte{0, 0, 0, 1},
+	btreeType:        int(TableBtreeInteriorCell),
+	rightMostpointer: []byte{0, 0, 0, 2},
+	cellArea:         []byte{0, 0, 0, 2, 0, 2},
 	isOverflow:       false,
 	leftSibling:      nil,
 	rightSiblisng:    nil,
@@ -160,13 +163,16 @@ var zeroPage = PageParsed{
 // }
 
 var firstPage = PageParsed{
-	dbHeader:       DbHeader{},
-	dbHeaderSize:   0,
-	cellAreaParsed: [][]byte{[]byte{0, 0, 0, 0, 0, 1}, []byte{0, 0, 0, 0, 0, 2}, []byte{0, 0, 0, 0, 0, 3}, []byte{0, 0, 0, 0, 0, 4}},
-	isOverflow:     true,
-	leftSibling:    nil,
-	isLeaf:         false,
-	rightSiblisng:  nil,
+	dbHeader:     DbHeader{},
+	dbHeaderSize: 0,
+	pageNumber:   1,
+	btreeType:    int(TableBtreeLeafCell),
+	cellAreaParsed: [][]byte{[]byte{0, 0, 0, 1, 0, 1}, []byte{0, 0, 0, 2, 0, 2}, []byte{0, 0, 0, 3, 0, 3}, []byte{0, 0, 0, 4, 0, 4}, []byte{0, 0, 0, 5, 0, 5}, []byte{0, 0, 0, 6, 0, 6}, []byte{0, 0, 0, 7, 0, 7},
+		[]byte{0, 0, 0, 8, 0, 8}, []byte{0, 0, 0, 9, 0, 9}, []byte{0, 0, 0, 10, 0, 10}, []byte{0, 0, 0, 11, 0, 11}, []byte{0, 0, 0, 12, 0, 12}, []byte{0, 0, 0, 13, 0, 13}},
+	isOverflow:    true,
+	leftSibling:   nil,
+	isLeaf:        true,
+	rightSiblisng: nil,
 }
 
 // divider
@@ -175,6 +181,11 @@ var firstPage = PageParsed{
 // [[{1 1} {1 2}] [{1 4}]]
 
 var secondPage = PageParsed{}
+var thirdPage = PageParsed{}
+var fourthPage = PageParsed{}
+var fifthPage = PageParsed{}
+var sixthPage = PageParsed{}
+var seventhPage = PageParsed{}
 
 func getNode(pageNumber int) PageParsed {
 	if pageNumber == 1 {
@@ -183,12 +194,68 @@ func getNode(pageNumber int) PageParsed {
 		return zeroPage
 	}
 
-	panic("shouldn't be here")
+	panic("shouldn't be here get node")
 
 }
 
+func saveNode(pageNumber int, page PageParsed) {
+	if pageNumber == 1 {
+		firstPage = page
+		return
+	} else if pageNumber == 0 {
+		zeroPage = page
+		return
+	} else if pageNumber == 2 {
+		secondPage = page
+		return
+	} else if pageNumber == 3 {
+		thirdPage = page
+		return
+	} else if pageNumber == 4 {
+		fourthPage = page
+		return
+	} else if pageNumber == 5 {
+		fifthPage = page
+		return
+	} else if pageNumber == 6 {
+		sixthPage = page
+		return
+	} else if pageNumber == 7 {
+		seventhPage = page
+		return
+	}
+
+	panic("shouldn't be here save node")
+
+}
+
+var PageNumber = 2
+var loopIteration = 0
+
 func balancingForNode(pageNumber int, parents []int) {
+	loopIteration++
+	if loopIteration > 2 {
+		return
+	}
+	if loopIteration == 2 {
+		fmt.Println("iteration nr 2 ````````````````````````````````````````````````````")
+		fmt.Println("iteration nr 2 ````````````````````````````````````````````````````")
+		fmt.Println("iteration nr 2 ````````````````````````````````````````````````````")
+		fmt.Println("iteration nr 2 ````````````````````````````````````````````````````")
+		fmt.Println("iteration nr 2 ````````````````````````````````````````````````````")
+		fmt.Println("iteration nr 2 ````````````````````````````````````````````````````")
+	}
+	fmt.Println("enter")
+	fmt.Println(pageNumber)
+	fmt.Println(parents)
+	fmt.Println("enter")
+	// reader := NewReader("")
+	// pageRaw := reader.readDbPage(pageNumber)
+	// node := parseReadPage(pageRaw, pageNumber)
 	node := getNode(pageNumber)
+
+	fmt.Println("node")
+	fmt.Printf("%+v", node)
 
 	siblings := []PageParsed{}
 
@@ -209,18 +276,28 @@ func balancingForNode(pageNumber int, parents []int) {
 	isRoot := len(parents) == 0
 
 	fmt.Println("checkpoint2")
+	fmt.Println(node.isOverflow)
 
 	if !node.isOverflow {
 		return
 	}
 
-	if isRoot {
+	if isRoot && node.isOverflow {
 		// take root page
 		// insert a new page and move that taken from root and run balancing algoritm
 		// root := getRootData()
-		rootPageNode = Node{
-			isOverflow: false,
+		newPage := PageParsed{
+			pageNumber:     PageNumber,
+			cellArea:       node.cellArea,
+			cellAreaParsed: node.cellAreaParsed,
 		}
+		PageNumber++
+		// pageNumber is 0, we append new root page
+		parents = append(parents, pageNumber)
+		siblings = []PageParsed{newPage}
+		node = newPage
+		pageNumber = PageNumber
+
 		// siblings = [][]Cell{root}
 		// divider = []Cell{}
 	}
@@ -236,19 +313,24 @@ func balancingForNode(pageNumber int, parents []int) {
 	cellToDistribute := []Cell{}
 	startIndex := 0
 	endIndex := 0
+	fmt.Println("hello siblings data")
+	fmt.Printf("%+v", siblings)
 	for i, v := range siblings {
 		for _, vN := range v.cellAreaParsed {
 			fmt.Println("row id???", vN[4:6])
-			var rowId int
-			if node.isLeaf {
-				rowIdUint64, _ := DecodeVarint(vN[2:4])
-				rowId = int(rowIdUint64)
-			} else {
-				rowIdUint64, _ := DecodeVarint(vN[4:6])
-				rowId = int(rowIdUint64)
-			}
+			rowIdUint64, _ := DecodeVarint(vN[4:6])
+			rowId := int(rowIdUint64)
+			pageNumberInt64, _ := DecodeVarint(vN[:4])
+			pageNumber := int(pageNumberInt64)
+			// if node.isLeaf {
+			// 	rowIdUint64, _ := DecodeVarint(vN[2:4])
+			// 	rowId = int(rowIdUint64)
+			// } else {
+			// 	rowIdUint64, _ := DecodeVarint(vN[4:6])
+			// 	rowId = int(rowIdUint64)
+			// }
 
-			cellToDistribute = append(cellToDistribute, Cell{size: 1, pageNumber: int(rowId)})
+			cellToDistribute = append(cellToDistribute, Cell{size: 1, pageNumber: int(pageNumber), rowId: rowId})
 		}
 		// divider should be taken from parens, by taken i mean removed
 
@@ -283,13 +365,14 @@ func balancingForNode(pageNumber int, parents []int) {
 
 	oldLastSibling := siblings[len(siblings)-1]
 
-	if len(numberOfCellPerPage) != len(siblings) {
-		// basically allocating new page
-		newPage := PageParsed{}
-		secondPage = newPage
-		siblings = append(siblings, secondPage)
+	// if len(numberOfCellPerPage) != len(siblings) {
+	// 	// basically allocating new page
+	// 	newPage := PageParsed{pageNumber: PageNumber}
+	// 	PageNumber++
+	// 	secondPage = newPage
+	// 	siblings = append(siblings, secondPage)
 
-	}
+	// }
 
 	// fix pointers
 	lastSibling := siblings[len(siblings)-1]
@@ -300,18 +383,63 @@ func balancingForNode(pageNumber int, parents []int) {
 
 	// lastSibling.po
 
-	deivider, pages := redistribution(totalSizeInEachPage, numberOfCellPerPage, cellToDistribute, len(siblings), node, siblings)
+	// add new pages
+	for len(siblings) < len(numberOfCellPerPage) {
+		siblings = append(siblings, PageParsed{pageNumber: PageNumber})
+		PageNumber++
+	}
+
+	// free pages
+	for len(numberOfCellPerPage) < len(siblings) {
+		siblings = siblings[:len(siblings)-1]
+	}
+	deivider, pages := redistribution(totalSizeInEachPage, numberOfCellPerPage, cellToDistribute, len(siblings), node)
+	fmt.Println("siblings")
+	fmt.Printf("%+v", siblings[0])
+	for i, v := range pages {
+		rowData := []byte{}
+		for _, vN := range v {
+			rowData = append(rowData, intToBinary(vN.pageNumber, 4)...)
+			rowData = append(rowData, intToBinary(vN.rowId, 2)...)
+		}
+		siblings[i].cellArea = rowData
+		fmt.Println("save node", siblings[i].pageNumber)
+		saveNode(siblings[i].pageNumber, siblings[i])
+	}
 
 	fmt.Println("divider")
 	fmt.Println(deivider)
 	fmt.Println("pager")
 	fmt.Println(pages)
+	fmt.Println(parent)
+	updateDivider(parent, deivider, startIndex, endIndex)
+
+	fmt.Println("display pages")
+	fmt.Printf("%+v \n", zeroPage)
+	fmt.Println("``````````first page `````````````")
+	fmt.Printf("%+v \n", firstPage)
+	fmt.Println("``````````second page `````````````")
+	fmt.Printf("%+v \n", secondPage)
+	fmt.Println("``````````third page `````````````")
+	fmt.Printf("%+v \n", thirdPage)
+	fmt.Println("``````````fourth page `````````````")
+	fmt.Printf("%+v \n", fourthPage)
+	fmt.Println("``````````fifth page `````````````")
+	fmt.Printf("%+v \n", fifthPage)
+	fmt.Println("``````````sixth page `````````````")
+	fmt.Printf("%+v \n", sixthPage)
+	fmt.Println("``````````seventh page `````````````")
+	fmt.Printf("%+v \n", seventhPage)
 
 	balancingForNode(parent, parents)
 
 }
 
 func leaf_bias(cells []Cell, node PageParsed) ([]int, []int) {
+
+	fmt.Println("cells")
+	fmt.Println(cells)
+	fmt.Println("cells")
 
 	totalSizeInEachPage := []int{0}
 	numberOfCellPerPage := []int{0}
@@ -332,6 +460,8 @@ func leaf_bias(cells []Cell, node PageParsed) ([]int, []int) {
 			numberOfCellPerPage = append(numberOfCellPerPage, 0)
 		}
 	}
+	fmt.Println("hello result?")
+	fmt.Println(totalSizeInEachPage)
 
 	return totalSizeInEachPage, numberOfCellPerPage
 }
@@ -342,7 +472,13 @@ func accountForUnderflowToardsRight(totalSizeInEachPage, numberOfCellPerPage []i
 
 	// PAGE 1 [1,2,3], PageTwo [4]
 	//4 -1 = 3 -1 =2
-
+	fmt.Println("look at this")
+	fmt.Println(len(cellToDistribute))
+	fmt.Println(numberOfCellPerPage[len(numberOfCellPerPage)-1])
+	fmt.Println("how many pages we got")
+	fmt.Println(totalSizeInEachPage)
+	fmt.Println("look at this")
+	// 7 - 3 -1 =3
 	divCell := len(cellToDistribute) - numberOfCellPerPage[len(numberOfCellPerPage)-1] - 1
 
 	if len(numberOfCellPerPage) >= 2 {
@@ -649,16 +785,16 @@ func search(pageNumber int, parents []int, entry int) (bool, int, Node) {
 //
 
 func binary_search(pageNumber int, rowIdAsEntry int) (bool, int, Node) {
-	// node := getNode2(pageNumber)
-	node := PageParsed{}
+	node := getNode2(pageNumber)
+	// node := PageParsed{}
 
-	for i := 0; i < len(node.cellArea); i++ {
-		if entry == node.indexes[i].id {
-			return true, node.indexes[i].id, node
-		} else if entry < node.indexes[i].id {
-			return false, node.indexes[i].leftPointer, node
-		}
-	}
+	// for i := 0; i < len(node.cellArea); i++ {
+	// 	if entry == node.indexes[i].id {
+	// 		return true, node.indexes[i].id, node
+	// 	} else if entry < node.indexes[i].id {
+	// 		return false, node.indexes[i].leftPointer, node
+	// 	}
+	// }
 	return false, node.rightPointer, node
 }
 

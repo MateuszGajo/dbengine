@@ -75,7 +75,10 @@ type PageParsed struct {
 }
 
 func getDivider(pageNumber int) (Divider, int, int) {
-	page := PageParsed{}
+	// reader := NewReader("")
+	// pageRaw := reader.readDbPage(pageNumber)
+	// page := parseReadPage(pageRaw, pageNumber)
+	page := getNode(pageNumber)
 
 	if page.btreeType != int(TableBtreeInteriorCell) {
 		panic("onyl divider for interior cell tree")
@@ -95,13 +98,16 @@ func getDivider(pageNumber int) (Divider, int, int) {
 		i += 6
 	}
 
-	panic("didnt find divider")
+	panic("get, didnt find divider")
 }
 
 // focus on this test it etc
 
-func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int) Divider {
-	page := PageParsed{}
+func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int) {
+	// reader := NewReader("")
+	// pageRaw := reader.readDbPage(pageNumber)
+	// page := parseReadPage(pageRaw, pageNumber)
+	page := getNode(pageNumber)
 
 	if page.btreeType != int(TableBtreeInteriorCell) {
 		panic("onyl divider for interior cell tree")
@@ -114,13 +120,21 @@ func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int) Divid
 		contentAreaFirst = append(contentAreaFirst, newPointer...)
 	}
 	contentAreaFirst = append(contentAreaFirst, contentAreaSecond...)
-
-	// check if cell area overflow page
-	if true {
+	if len(contentAreaFirst) > 12 {
 		page.isOverflow = true
 	}
+	page.cellArea = contentAreaFirst
 
-	panic("didnt find divider")
+	for len(contentAreaFirst) > 0 {
+		fmt.Println("hello cell area")
+		fmt.Println(contentAreaFirst)
+		page.cellAreaParsed = append(page.cellAreaParsed, contentAreaFirst[:6])
+		contentAreaFirst = contentAreaFirst[6:]
+	}
+
+	// check if cell area overflow page
+
+	saveNode(pageNumber, page)
 
 }
 

@@ -4,7 +4,49 @@ import (
 	"testing"
 )
 
+// debug this test
 func TestLeaftBiasDistribution(t *testing.T) {
+	clearDbFile("test")
+	// var zeroPage = PageParsed{
+	// 	dbHeader:         header(),
+	// 	btreeType:        int(TableBtreeInteriorCell),
+	// 	dbHeaderSize:     100,
+	// 	cellAreaParsed:   [][]byte{},
+	// 	rightMostpointer: []byte{0, 0, 0, 1},
+	// 	isOverflow:       false,
+	// 	leftSibling:      nil,
+	// 	rightSiblisng:    nil,
+	// }
+
+	// server := ServerStruct{
+	// 	firstPage: zeroPage,
+	// }
+
+	// // var firstPage = PageParsed{
+	// // 	dbHeader:       DbHeader{},
+	// // 	dbHeaderSize:   0,
+	// // 	cellAreaParsed: [][]byte{[]byte{0, 0, 0, 1, 0, 0}, []byte{0, 0, 0, 2, 0, 0}, []byte{0, 0, 0, 3, 0, 0}, []byte{0, 0, 0, 4, 0, 0}},
+	// // 	isOverflow:     true,
+	// // 	leftSibling:    nil,
+	// // 	isLeaf:         true,
+	// // 	rightSiblisng:  nil,
+	// // }
+
+	// var firstPage = PageParsed{
+	// 	dbHeader:       DbHeader{},
+	// 	dbHeaderSize:   0,
+	// 	btreeType:      int(TableBtreeLeafCell),
+	// 	cellAreaParsed: [][]byte{[]byte{0, 0, 0, 0, 0, 1}, []byte{0, 0, 0, 0, 0, 2}, []byte{0, 0, 0, 0, 0, 3}, []byte{0, 0, 0, 0, 0, 4}},
+	// 	isOverflow:     true,
+	// 	leftSibling:    nil,
+	// 	isLeaf:         false,
+	// 	rightSiblisng:  nil,
+	// }
+
+	// writer := NewWriter()
+
+	// writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
+	// writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	balancingForNode(1, []int{0})
 
 	t.Errorf("test")
