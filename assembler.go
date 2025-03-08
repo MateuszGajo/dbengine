@@ -20,12 +20,25 @@ func assembleDbPage(page PageParsed) []byte {
 	}
 	fmt.Println("nested 4")
 	data = append(data, page.pointers...)
-	fmt.Println("nested 4.1")
-	zerosLen := PageSize - len(data) - len(page.cellArea)
-	fmt.Println("zeros length")
-	fmt.Println(zerosLen)
+	cellArea := []byte{}
+	if len(page.cellAreaParsed) > 0 {
+
+		for _, v := range page.cellAreaParsed {
+			cellArea = append(cellArea, v...)
+		}
+	} else {
+		cellArea = page.cellArea
+	}
+
+	// if PageSize-len(cellArea) != page.startCellContentArea {
+	// 	fmt.Printf("cell area should be equal %v, %v \n", PageSize-len(cellArea), page.startCellContentArea)
+	// 	panic("cell area start pointer, and data not equal")
+	// }
+
+	zerosLen := PageSize - len(data) - len(cellArea)
+
 	data = append(data, make([]byte, zerosLen)...)
-	data = append(data, page.cellArea...)
+	data = append(data, cellArea...)
 	fmt.Println("nested 5")
 
 	return data

@@ -21,6 +21,15 @@ func NewReader(conId string) *PageReader {
 	}
 }
 
+func (reader PageReader) readFromMemory(pageNumber int) PageParsed {
+	for _, v := range softWritePages {
+		if v.pageNumber == pageNumber {
+			return v
+		}
+	}
+	return parseReadPage(reader.readDbPage(pageNumber), pageNumber)
+}
+
 func (reader PageReader) readDbPage(pageNumber int) []byte {
 	lockMutex.RLock()
 	sharedLock[reader.conId] = struct{}{}

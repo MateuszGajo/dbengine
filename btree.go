@@ -946,7 +946,7 @@ func EncodeVarint(n uint64) []byte {
 
 // DecodeVarint decodes a byte slice encoded in SQLite's varint format
 // back into a uint64. It also returns the number of bytes read.
-func DecodeVarint(data []byte) (uint64, int) {
+func DecodeVarint(data []byte) uint64 {
 	var n uint64
 	var bytesRead int
 
@@ -957,16 +957,16 @@ func DecodeVarint(data []byte) (uint64, int) {
 			bytesRead++
 			// If the continuation flag is not set, we're done.
 			if b&0x80 == 0 && i == 7 {
-				return n, bytesRead
+				return n
 			}
 		} else {
 			// The 9th byte contains 8 bits of data.
 			n = (n << 8) | uint64(b)
 			bytesRead++
-			return n, bytesRead
+			return n
 		}
 	}
-	return n, bytesRead
+	return n
 }
 
 func calculateTextLength(value string) []byte {

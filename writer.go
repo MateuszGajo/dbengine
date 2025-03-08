@@ -20,10 +20,47 @@ func NewWriter() *WriterStruct {
 	}
 }
 
+var softWritePages []PageParsed
+
 // Action plan:
 // TOOD: handle retry logic for old data
+func (writer WriterStruct) softwiteToFile(data PageParsed, page int, firstPage *PageParsed) {
+	firstPage.dbHeader.fileChangeCounter++
+	firstPage.dbHeader.versionValidForNumber++
+	if page == firstPage.dbHeader.dbSizeInPages {
+		firstPage.dbHeader.dbSizeInPages++
+	} else if page > firstPage.dbHeader.dbSizeInPages {
+		fmt.Println(page)
+		fmt.Println("is greater than number of paghes")
+		fmt.Println(firstPage.dbHeader.dbSizeInPages)
+		panic("don't leave empty space")
+	}
+	dbHeaderSize := 8
+	if data.btreeType == int(TableBtreeInteriorCell) {
+		dbHeaderSize = 12
+	}
+	if dbHeaderSize+len(data.pointers)*2 >= data.startCellContentArea {
+		data.isOverflow = true
+	} else {
+		data.isOverflow = false
+	}
+
+	softWritePages = append(softWritePages, data)
+}
+
+func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
+	for _, v := range softWritePages {
+		writer.writeToFile(assembleDbPage(v), v.pageNumber, conId, firstPage)
+		if v.isOverflow {
+			panic("can't save overflow page")
+		}
+	}
+	softWritePages = []PageParsed{}
+}
 
 func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage *PageParsed) {
+	fmt.Println("write to file, page number")
+	fmt.Println(page)
 	writer.WriteToFileWithRetry(data, page, conId)
 	fmt.Println("hmm??")
 	if page == 0 {
