@@ -663,31 +663,49 @@ func updateNode(newNode Node, pageNumber int) {
 	panic("shouldn't run this in updsae")
 }
 
-// func insert(entry int) {
-// 	ok, _, node := search(0, []int{}, entry)
+// Test insert function!!!
 
-// 	if ok {
-// 		// update condition
-// 		// node.value = new value form entry
-// 		fmt.Println("updated node value!!!")
+func insert(rowId int, pageNumber int, firstPage *PageParsed) PageParsed {
+	ok, _, node := search(0, rowId)
 
-// 		return
-// 	}
-// 	// insert condition
+	if ok {
+		// update condition
+		// node.value = new value form entry
+		fmt.Println("updated node value!!!")
+		newData := EncodeVarint(uint64(pageNumber))
+		newData = append(newData, EncodeVarint(uint64(rowId))...)
+		for i, v := range node.cellAreaParsed {
+			rowIdFound := int(DecodeVarint(v[4:6]))
 
-// 	node.indexes = append(node.indexes, Index{id: entry})
+			if rowId == rowIdFound {
+				node.cellAreaParsed[i] = newData
+			}
+		}
 
-// 	if len(node.indexes) > int(usableSpacePerPage) {
-// 		node.isOverflow = true
-// 	}
-// 	updateNode(node, node.pageNumber)
+		return node
+	} else {
+		// insert condition
+		data := intToBinary(pageNumber, 4)
+		data = append(data, intToBinary(rowId, 2)...)
+		cellParsedData := [][]byte{data}
+		cellParsedData = append(cellParsedData, node.cellAreaParsed...)
 
-// 	fmt.Println("nodes")
-// 	fmt.Printf("%+v \n", pageZero)
-// 	fmt.Printf("%+v \n", pageOne)
-// 	fmt.Printf("%+v \n", pageTwo)
-// 	fmt.Printf("%+v \n", pageThree)
-// }
+		cellArea := data
+		cellArea = append(cellArea, node.cellArea...)
+		node.cellArea = cellArea
+		node.cellAreaParsed = cellParsedData
+	}
+
+	// node.indexes = append(node.indexes, Index{id: rowId})
+
+	// if len(node.indexes) > int(usableSpacePerPage) {
+	// 	node.isOverflow = true
+	// }
+	writer := NewWriter()
+	writer.softwiteToFile(node, node.pageNumber, firstPage)
+
+	return node
+}
 
 // Search algorithm
 // 1. Read the subtree node into memory
@@ -752,7 +770,7 @@ func search(pageNumber int, entry int) (bool, int, PageParsed) {
 
 	if !ok && page.isLeaf {
 		fmt.Println("didnt find what we are looking for")
-		return false, 0, page
+		return false, pageNumber, page
 	}
 	if ok {
 		fmt.Println("enter ok???")
@@ -792,6 +810,9 @@ func search(pageNumber int, entry int) (bool, int, PageParsed) {
 func binary_search(page PageParsed, ageNumber int, rowIdAsEntry int) (bool, int) {
 	// node := getNode2(pageNumber)
 	// node := PageParsed{}
+	fmt.Println("hello page number")
+	fmt.Println(page.pageNumber)
+	fmt.Println(page.cellAreaParsed)
 
 	if len(page.cellAreaParsed) == 0 {
 		panic("empty page, cell area parsed empty")
@@ -799,6 +820,11 @@ func binary_search(page PageParsed, ageNumber int, rowIdAsEntry int) (bool, int)
 
 	rightPointerPage := int(DecodeVarint(page.rightMostpointer))
 	rightRowId := int(DecodeVarint(page.cellAreaParsed[0][4:6]))
+
+	fmt.Println("hello, right rowid")
+	fmt.Println(rightRowId)
+	fmt.Println("hello, row id as entry")
+	fmt.Println(rowIdAsEntry)
 
 	if rowIdAsEntry > rightRowId {
 		fmt.Println("checkpoint right most pointer")
@@ -881,7 +907,7 @@ func binary_search(page PageParsed, ageNumber int, rowIdAsEntry int) (bool, int)
 		}
 
 		// we are on last page
-		if i == len(page.cellAreaParsed)-1 && rowIdAsEntry < rowId {
+		if i == len(page.cellAreaParsed)-1 && rowIdAsEntry <= rowId {
 			// go to current page (as this is last page)
 			return false, pageNumber
 		} else if i == len(page.cellAreaParsed)-1 {
