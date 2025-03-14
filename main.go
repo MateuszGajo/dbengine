@@ -99,6 +99,7 @@ func exectueCommand(input string) {
 		dbInfo:   DbInfo{},
 		reader:   NewReader(conId),
 		writer:   NewWriter(),
+		sequence: make(map[string]int),
 	}
 
 	data := NewReader(server.conId).readDbPage(0)
@@ -128,6 +129,8 @@ type ServerStruct struct {
 	dbInfo    DbInfo
 	reader    *PageReader
 	writer    *WriterStruct
+	// Stores tables' row id
+	sequence map[string]int
 }
 
 func main() {

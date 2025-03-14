@@ -35,11 +35,8 @@ func (writer WriterStruct) softwiteToFile(data PageParsed, page int, firstPage *
 		fmt.Println(firstPage.dbHeader.dbSizeInPages)
 		panic("don't leave empty space")
 	}
-	dbHeaderSize := 8
-	if data.btreeType == int(TableBtreeInteriorCell) {
-		dbHeaderSize = 12
-	}
-	if dbHeaderSize+len(data.pointers)*2 >= data.startCellContentArea {
+	if !data.isSpace() {
+		fmt.Println("st overflow to true??")
 		data.isOverflow = true
 	} else {
 		data.isOverflow = false
@@ -49,6 +46,7 @@ func (writer WriterStruct) softwiteToFile(data PageParsed, page int, firstPage *
 }
 
 func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
+
 	for _, v := range softWritePages {
 		writer.writeToFile(assembleDbPage(v), v.pageNumber, conId, firstPage)
 		if v.isOverflow {
@@ -59,7 +57,21 @@ func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
 }
 
 func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage *PageParsed) {
-	fmt.Println("write to file, page number")
+	var memoryPageIndex *int
+
+	for i, v := range softWritePages {
+		if v.pageNumber == page {
+			memoryPageIndex = &i
+			break
+		}
+	}
+
+	if memoryPageIndex != nil {
+		newSoftWritePages := softWritePages[:*memoryPageIndex]
+		newSoftWritePages = append(newSoftWritePages, softWritePages[*memoryPageIndex+1:]...)
+		softWritePages = newSoftWritePages
+	}
+
 	fmt.Println(page)
 	writer.WriteToFileWithRetry(data, page, conId)
 	fmt.Println("hmm??")

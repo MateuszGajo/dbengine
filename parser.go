@@ -56,6 +56,7 @@ type Divider struct {
 type PageParsed struct {
 	dbHeader             DbHeader // only for first page
 	dbHeaderSize         int
+	btreePageHeaderSize  int
 	btreeType            int
 	freeBlock            int
 	numberofCells        int
@@ -65,6 +66,7 @@ type PageParsed struct {
 	pointers             []byte
 	cellArea             []byte
 	cellAreaParsed       [][]byte
+	cellAreaSize         int
 	latesRow             *LastPageParseLatestRow
 	isOverflow           bool
 	leftSibling          *int
@@ -121,7 +123,8 @@ func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int, first
 	}
 	contentAreaFirst = append(contentAreaFirst, contentAreaSecond...)
 	if len(contentAreaFirst) > 12 {
-		page.isOverflow = true
+		fmt.Println("set overflow to true??")
+		// page.isOverflow = true
 	}
 	page.cellArea = contentAreaFirst
 	page.cellAreaParsed = [][]byte{}
@@ -279,6 +282,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 			startCellContentArea: PageSize,
 			cellArea:             []byte{},
 			pointers:             []byte{},
+			cellAreaSize:         0,
 			latesRow: &LastPageParseLatestRow{
 				rowId:   0,
 				data:    []byte{},
@@ -306,6 +310,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 
 	btreeType := dataToParse[0]
+	btreePageHeaderSize := 8
 	isPointerValue := btreeType == 0x05
 
 	if btreeType != 0x05 && btreeType != 0x0d {
@@ -318,6 +323,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	switch BtreeType(btreeType) {
 	case TableBtreeInteriorCell, IndexBtreeInteriorCell:
 		isPointerValue = true
+		btreePageHeaderSize = 12
 
 	}
 
@@ -378,8 +384,27 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	cellAreaParsed := [][]byte{}
 
 	for len(cellAreaContentTmp) > 0 {
-		cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:6])
-		cellAreaContentTmp = cellAreaContentTmp[6:]
+		if btreeType == byte(TableBtreeInteriorCell) {
+			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:6])
+			cellAreaContentTmp = cellAreaContentTmp[6:]
+		} else if btreeType == byte(TableBtreeLeafCell) {
+			if cellAreaContentTmp[0] > 127 {
+				//length
+				panic("implement this later1")
+			}
+			if cellAreaContentTmp[1] > 127 {
+				// rowid
+				fmt.Println("alright what cell area content is")
+				fmt.Println(cellAreaContentTmp)
+				fmt.Println("page number?")
+				fmt.Println(dbPage)
+				panic("implement this later11")
+			}
+			length := int(cellAreaContentTmp[0]) + 2 // byte for length, and rowid
+
+			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:length])
+			cellAreaContentTmp = cellAreaContentTmp[length:]
+		}
 	}
 
 	if len(cellAreaContent) > 0 && btreeType == 0x13 {
@@ -414,22 +439,20 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 			columns: latestRowColumns,
 		}
 	}
-	isOverflow := false
-	if dbPage == 1 {
-		isOverflow = true
-	}
 
 	return PageParsed{
 		dbHeader:             dbHeader,
 		dbHeaderSize:         dbHeaderSize,
+		btreePageHeaderSize:  btreePageHeaderSize,
 		pageNumber:           dbPage,
 		isLeaf:               isLeaf,
 		btreeType:            int(btreeType),
 		numberofCells:        numberofCellsInt,
 		startCellContentArea: int(startCellContentAreaInt),
 		rightMostpointer:     rightMostPointer,
+		cellAreaSize:         len(cellAreaContent),
 		cellArea:             cellAreaContent,
-		isOverflow:           isOverflow,
+		isOverflow:           false,
 		cellAreaParsed:       cellAreaParsed,
 		framgenetedArea:      int(fragmenetedArea),
 		freeBlock:            int(freeBlocksInt),
