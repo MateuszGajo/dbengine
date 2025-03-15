@@ -76,18 +76,16 @@ type PageParsed struct {
 	isLeaf               bool
 }
 
-func getDivider(pageNumber int) (Divider, int, int) {
-	reader := NewReader("")
-	pageRaw := reader.readDbPage(pageNumber)
-	page := parseReadPage(pageRaw, pageNumber)
+func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
+
 	// page := getNode(pageNumber)
 
-	if page.btreeType != int(TableBtreeInteriorCell) {
-		panic("onyl divider for interior cell tree")
+	if parentPage.btreeType != int(TableBtreeInteriorCell) {
+		panic("onyl divider for interior cell tree, get divider")
 	}
 	i := 0
-	for i < len(page.cellArea) {
-		pointer := page.cellArea[i : i+6]
+	for i < len(parentPage.cellArea) {
+		pointer := parentPage.cellArea[i : i+6]
 		pointerPageNumber := binary.BigEndian.Uint32(pointer[:4])
 
 		if int(pointerPageNumber) == pageNumber {
@@ -105,14 +103,18 @@ func getDivider(pageNumber int) (Divider, int, int) {
 
 // focus on this test it etc
 
-func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int, firstPage *PageParsed) {
-	reader := NewReader("")
-	pageRaw := reader.readDbPage(pageNumber)
-	page := parseReadPage(pageRaw, pageNumber)
+func updateDivider(page PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed) {
+	// reader := NewReader("")
+	// pageRaw := reader.readDbPage(pageNumber)
+	// page := parseReadPage(pageRaw, pageNumber)
 	// page := getNode(pageNumber)
 
+	fmt.Println("update divider for page??")
+	fmt.Println(page.pageNumber)
+	fmt.Println("update divider for page??")
+
 	if page.btreeType != int(TableBtreeInteriorCell) {
-		panic("onyl divider for interior cell tree")
+		panic("onyl divider for interior cell tree, update divider")
 	}
 	contentAreaFirst := page.cellArea[:startIndex]
 	contentAreaSecond := page.cellArea[:endIndex]
@@ -136,9 +138,9 @@ func updateDivider(pageNumber int, cells []Cell, startIndex, endIndex int, first
 	page.startCellContentArea = PageSize - len(page.cellArea)
 	writer := NewWriter()
 
-	writer.softwiteToFile(page, pageNumber, firstPage)
+	writer.softwiteToFile(&page, page.pageNumber, firstPage)
 
-	if pageNumber == 0 {
+	if page.pageNumber == 0 {
 		firstPage = &page
 	}
 	// check if cell area overflow page
@@ -292,6 +294,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	}
 
 	if len(data) != PageSize {
+		fmt.Printf("\n page number: %v", dbPage)
 		panic("invalid page size, expected" + strconv.Itoa(PageSize) + " got: " + strconv.Itoa(len(data)))
 	}
 	dataToParse := data

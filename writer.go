@@ -24,7 +24,7 @@ var softWritePages []PageParsed
 
 // Action plan:
 // TOOD: handle retry logic for old data
-func (writer WriterStruct) softwiteToFile(data PageParsed, page int, firstPage *PageParsed) {
+func (writer WriterStruct) softwiteToFile(data *PageParsed, page int, firstPage *PageParsed) {
 	firstPage.dbHeader.fileChangeCounter++
 	firstPage.dbHeader.versionValidForNumber++
 	if page == firstPage.dbHeader.dbSizeInPages {
@@ -42,7 +42,7 @@ func (writer WriterStruct) softwiteToFile(data PageParsed, page int, firstPage *
 		data.isOverflow = false
 	}
 
-	softWritePages = append(softWritePages, data)
+	softWritePages = append(softWritePages, *data)
 }
 
 func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
