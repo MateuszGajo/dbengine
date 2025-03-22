@@ -4,24 +4,18 @@ import "fmt"
 
 func assembleDbPage(page PageParsed) []byte {
 	data := []byte{}
-	fmt.Println("nested 1")
 	if page.dbHeaderSize > 0 {
 		data = append(data, assembleDbHeader(page.dbHeader)...)
 	}
-	fmt.Println("nested 2")
 	data = append(data, byte(page.btreeType))
 	data = append(data, intToBinary(page.freeBlock, 2)...)
 	data = append(data, intToBinary(page.numberofCells, 2)...)
 	data = append(data, intToBinary(page.startCellContentArea, 2)...)
 	data = append(data, byte(page.framgenetedArea))
-	fmt.Println("nested 3")
 	if len(page.rightMostpointer) > 0 {
 		data = append(data, page.rightMostpointer...)
 	}
-	fmt.Println("nested 4")
-	fmt.Println("save pointers")
-	fmt.Println(page.pageNumber)
-	fmt.Println(page.pointers)
+
 	data = append(data, page.pointers...)
 	cellArea := []byte{}
 	if len(page.cellAreaParsed) > 0 {
@@ -41,13 +35,15 @@ func assembleDbPage(page PageParsed) []byte {
 	zerosLen := PageSize - len(data) - len(cellArea)
 
 	if zerosLen < 0 {
+		fmt.Println("page number", page.pageNumber)
+		fmt.Println("cell area parsed??")
+		fmt.Println(page.cellAreaParsed)
 		fmt.Printf("\n data length: %v, cell area length: %v", len(data), len(cellArea))
 		panic("zeros length should never be less than 0")
 	}
 
 	data = append(data, make([]byte, zerosLen)...)
 	data = append(data, cellArea...)
-	fmt.Println("nested 5")
 
 	return data
 

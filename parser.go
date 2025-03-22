@@ -49,8 +49,7 @@ type CreateActionQueryData struct {
 }
 
 type Divider struct {
-	page  int
-	rowid int
+	page int
 }
 
 type PageParsed struct {
@@ -78,71 +77,102 @@ type PageParsed struct {
 
 func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 
+	if parentPage.pageNumber == 0 && parentPage.numberofCells == 0 {
+		fmt.Println("zero condition???!!!")
+		fmt.Println(parentPage.cellArea)
+		fmt.Println(parentPage.pageNumber)
+		fmt.Println(parentPage.numberofCells)
+		fmt.Println("zero condition???!!!")
+		fmt.Println("zero condition???!!!")
+		return Divider{}, 0, 0
+	}
+
 	// page := getNode(pageNumber)
 
+	cellAreaTmp := parentPage.cellArea
+	// cellAreaTmp = append(cellAreaTmp, []byte{0, 0}...)
+	// cellAreaTmp = append(cellAreaTmp, parentPage.cellArea...)
+
 	if parentPage.btreeType != int(TableBtreeInteriorCell) {
+		fmt.Println("page number", pageNumber)
 		panic("onyl divider for interior cell tree, get divider")
 	}
 	i := 0
-	for i < len(parentPage.cellArea) {
+	for i < len(cellAreaTmp) {
 		pointer := parentPage.cellArea[i : i+6]
 		pointerPageNumber := binary.BigEndian.Uint32(pointer[:4])
 
 		if int(pointerPageNumber) == pageNumber {
+			fmt.Println("what divider is returing?")
+			fmt.Println("page number, startIndex, endIndex")
+			fmt.Println(pageNumber, i, i+6)
 			return Divider{
-				page:  pageNumber,
-				rowid: int(binary.BigEndian.Uint16(pointer[4:])),
+				page: pageNumber,
+				// rowid: int(binary.BigEndian.Uint16(pointer[4:])),
 			}, i, i + 6
 		}
 
 		i += 6
 	}
 
+	fmt.Println("cell area")
+	fmt.Println(parentPage.cellArea)
+	fmt.Println(parentPage.pageNumber)
+	fmt.Println(parentPage.numberofCells)
+	fmt.Println("looing for page number")
+	fmt.Println(pageNumber)
+
 	panic("get, didnt find divider")
 }
 
 // focus on this test it etc
+// how to update a parent??
 
 func updateDivider(page PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed) {
-	// reader := NewReader("")
-	// pageRaw := reader.readDbPage(pageNumber)
-	// page := parseReadPage(pageRaw, pageNumber)
-	// page := getNode(pageNumber)
-
-	fmt.Println("update divider for page??")
-	fmt.Println(page.pageNumber)
-	fmt.Println("update divider for page??")
+	fmt.Println("update divider?")
+	fmt.Println("cells")
+	fmt.Println(cells)
+	fmt.Println("start index, endIndex")
+	fmt.Println(startIndex, endIndex)
 
 	if page.btreeType != int(TableBtreeInteriorCell) {
 		panic("onyl divider for interior cell tree, update divider")
 	}
-	contentAreaFirst := page.cellArea[:startIndex]
-	contentAreaSecond := page.cellArea[:endIndex]
-	for _, v := range cells {
-		newPointer := intToBinary(v.pageNumber, 4)
-		newPointer = append(newPointer, intToBinary(v.rowId, 2)...)
+	if len(cells) == 0 {
+		panic("cells are empty")
+	}
+	cellArea := page.cellArea
+
+	contentAreaFirst := append([]byte{}, cellArea[:startIndex]...)
+	contentAreaSecond := append([]byte{}, cellArea[endIndex:]...)
+
+	for i := len(cells) - 1; i >= 0; i-- {
+		newPointer := intToBinary(cells[i].pageNumber, 4)
+		newPointer = append(newPointer, intToBinary(cells[i].rowId, 2)...)
 		contentAreaFirst = append(contentAreaFirst, newPointer...)
 	}
+
 	contentAreaFirst = append(contentAreaFirst, contentAreaSecond...)
-	if len(contentAreaFirst) > 12 {
-		fmt.Println("set overflow to true??")
-		// page.isOverflow = true
+	if len(contentAreaFirst) < 6 {
+		fmt.Println(contentAreaFirst)
+		panic("content area is small")
 	}
+
 	page.cellArea = contentAreaFirst
-	page.cellAreaParsed = [][]byte{}
+	cellAreaParsed := dbReadparseCellArea(byte(page.btreeType), contentAreaFirst)
+	page.cellAreaParsed = cellAreaParsed
 
-	for len(contentAreaFirst) > 0 {
-		page.cellAreaParsed = append(page.cellAreaParsed, contentAreaFirst[:6])
-		contentAreaFirst = contentAreaFirst[6:]
-	}
-	page.startCellContentArea = PageSize - len(page.cellArea)
+	page.numberofCells = len(cellAreaParsed)
+	page.startCellContentArea = PageSize - len(contentAreaFirst)
+	page.cellAreaSize = len(contentAreaFirst)
+
 	writer := NewWriter()
-
 	writer.softwiteToFile(&page, page.pageNumber, firstPage)
 
 	if page.pageNumber == 0 {
 		firstPage = &page
 	}
+
 	// check if cell area overflow page
 	// writer.writeToFile(assembleDbPage(page), pageNumber, "", firstPage)
 	// saveNode(pageNumber, page)
@@ -274,6 +304,32 @@ func parseDbPageColumn(rowHeader []byte, rowValues []byte) []PageParseColumn {
 	return rowColumn
 }
 
+func dbReadparseCellArea(btreeType byte, cellAreaContentTmp []byte) [][]byte {
+	cellAreaParsed := [][]byte{}
+	for len(cellAreaContentTmp) > 0 {
+		if btreeType == byte(TableBtreeInteriorCell) {
+			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:6])
+			fmt.Println("before tratedy??")
+			fmt.Println(cellAreaContentTmp)
+			cellAreaContentTmp = cellAreaContentTmp[6:]
+		} else if btreeType == byte(TableBtreeLeafCell) {
+			if cellAreaContentTmp[0] > 127 {
+				//length
+				panic("implement this later1")
+			}
+			if cellAreaContentTmp[1] > 127 {
+				panic("implement this later11")
+			}
+			length := int(cellAreaContentTmp[0]) + 2 // byte for length, and rowid
+
+			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:length])
+			cellAreaContentTmp = cellAreaContentTmp[length:]
+		}
+	}
+
+	return cellAreaParsed
+}
+
 func parseReadPage(data []byte, dbPage int) PageParsed {
 	if dbPage == 0 && len(data) == 0 {
 		fmt.Println("here??")
@@ -386,29 +442,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	cellAreaContentTmp := cellAreaContent
 	cellAreaParsed := [][]byte{}
 
-	for len(cellAreaContentTmp) > 0 {
-		if btreeType == byte(TableBtreeInteriorCell) {
-			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:6])
-			cellAreaContentTmp = cellAreaContentTmp[6:]
-		} else if btreeType == byte(TableBtreeLeafCell) {
-			if cellAreaContentTmp[0] > 127 {
-				//length
-				panic("implement this later1")
-			}
-			if cellAreaContentTmp[1] > 127 {
-				// rowid
-				fmt.Println("alright what cell area content is")
-				fmt.Println(cellAreaContentTmp)
-				fmt.Println("page number?")
-				fmt.Println(dbPage)
-				panic("implement this later11")
-			}
-			length := int(cellAreaContentTmp[0]) + 2 // byte for length, and rowid
-
-			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:length])
-			cellAreaContentTmp = cellAreaContentTmp[length:]
-		}
-	}
+	cellAreaParsed = dbReadparseCellArea(btreeType, cellAreaContentTmp)
 
 	if len(cellAreaContent) > 0 && btreeType == 0x13 {
 		latestRowLength := int(cellAreaContent[0]) + 2

@@ -8,6 +8,7 @@ import (
 )
 
 func clearDbFile(fileName string) {
+	softWritePages = make(map[int]PageParsed)
 	dbName = fileName
 	path, err := os.Getwd()
 	if err != nil {

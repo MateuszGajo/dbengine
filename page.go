@@ -27,6 +27,7 @@ func (reader PageReader) readFromMemory(pageNumber int) PageParsed {
 			return v
 		}
 	}
+	fmt.Println("from memory parse", pageNumber)
 	return parseReadPage(reader.readDbPage(pageNumber), pageNumber)
 }
 
