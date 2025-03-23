@@ -13,7 +13,6 @@ type WriterStruct struct {
 }
 
 func NewWriter() *WriterStruct {
-	softWritePages = make(map[int]PageParsed)
 	return &WriterStruct{
 		retry:          0,
 		writeToFileRaw: writeToFileRaw,
@@ -29,17 +28,7 @@ var tree bool = false
 
 func (writer WriterStruct) softwiteToFile(data *PageParsed, page int, firstPage *PageParsed) {
 	fmt.Println("soft write writer", page)
-	if data.pageNumber == 0 {
-		if !tree && data.btreeType == 0x05 {
-			fmt.Println("change tree!!")
-			tree = true
-		}
-		if tree && data.btreeType != 0x05 {
-			// problem is with insert, is the tree type changed??
-			fmt.Println("override tree????")
-			fmt.Println(data.btreeType)
-		}
-	}
+
 	fmt.Println("content area len", len(data.cellAreaParsed))
 	firstPage.dbHeader.fileChangeCounter++
 	firstPage.dbHeader.versionValidForNumber++

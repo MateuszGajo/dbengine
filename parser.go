@@ -49,7 +49,8 @@ type CreateActionQueryData struct {
 }
 
 type Divider struct {
-	page int
+	page  int
+	rowId int
 }
 
 type PageParsed struct {
@@ -101,13 +102,15 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 	for i < len(cellAreaTmp) {
 		pointer := parentPage.cellArea[i : i+6]
 		pointerPageNumber := binary.BigEndian.Uint32(pointer[:4])
+		rowId := binary.BigEndian.Uint16(pointer[4:6])
 
 		if int(pointerPageNumber) == pageNumber {
 			fmt.Println("what divider is returing?")
 			fmt.Println("page number, startIndex, endIndex")
 			fmt.Println(pageNumber, i, i+6)
 			return Divider{
-				page: pageNumber,
+				page:  pageNumber,
+				rowId: int(rowId),
 				// rowid: int(binary.BigEndian.Uint16(pointer[4:])),
 			}, i, i + 6
 		}
@@ -128,7 +131,7 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 // focus on this test it etc
 // how to update a parent??
 
-func updateDivider(page PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed) {
+func updateDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed) {
 	fmt.Println("update divider?")
 	fmt.Println("cells")
 	fmt.Println(cells)
@@ -167,10 +170,10 @@ func updateDivider(page PageParsed, cells []Cell, startIndex, endIndex int, firs
 	page.cellAreaSize = len(contentAreaFirst)
 
 	writer := NewWriter()
-	writer.softwiteToFile(&page, page.pageNumber, firstPage)
+	writer.softwiteToFile(page, page.pageNumber, firstPage)
 
 	if page.pageNumber == 0 {
-		firstPage = &page
+		firstPage = page
 	}
 
 	// check if cell area overflow page
