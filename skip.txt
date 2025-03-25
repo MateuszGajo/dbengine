@@ -7,16 +7,6 @@ import (
 	"testing"
 )
 
-func clearDbFile(fileName string) {
-	softWritePages = make(map[int]PageParsed)
-	dbName = fileName
-	path, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	os.Remove(path + "/" + fileName + ".db")
-
-}
 
 func TestSingleSchemaWithSingleValue(t *testing.T) {
 	clearDbFile("test")
