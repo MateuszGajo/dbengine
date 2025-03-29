@@ -99,15 +99,13 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 		panic("onyl divider for interior cell tree, get divider")
 	}
 	i := 0
+	fmt.Println("get divider for page number??", pageNumber)
 	for i < len(cellAreaTmp) {
 		pointer := parentPage.cellArea[i : i+6]
 		pointerPageNumber := binary.BigEndian.Uint32(pointer[:4])
 		rowId := binary.BigEndian.Uint16(pointer[4:6])
 
 		if int(pointerPageNumber) == pageNumber {
-			fmt.Println("what divider is returing?")
-			fmt.Println("page number, startIndex, endIndex")
-			fmt.Println(pageNumber, i, i+6)
 			return Divider{
 				page:  pageNumber,
 				rowId: int(rowId),
@@ -118,25 +116,70 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 		i += 6
 	}
 
-	fmt.Println("cell area")
-	fmt.Println(parentPage.cellArea)
-	fmt.Println(parentPage.pageNumber)
-	fmt.Println(parentPage.numberofCells)
-	fmt.Println("looing for page number")
-	fmt.Println(pageNumber)
-
 	panic("get, didnt find divider")
 }
 
-// focus on this test it etc
-// how to update a parent??
+// i think we only need to update the higest rowId as we references this
+func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, pageNumber int, firstPage *PageParsed) {
+	fmt.Println("hello update divider???", page.pageNumber)
+	fmt.Println("looking for page?", pageNumber)
+	for i, v := range page.cellAreaParsed {
+		pageNumberCell := binary.BigEndian.Uint32(v[:4])
+		rowId := binary.BigEndian.Uint16(v[4:6])
+		if pageNumberCell == uint32(pageNumber) && mostRightRowId == int(rowId) {
+			return
+		} else if pageNumberCell == uint32(pageNumber) {
+			newCellArea := intToBinary(pageNumber, 4)
+			newCellArea = append(newCellArea, intToBinary(mostRightRowId, 2)...)
+			page.cellAreaParsed[i] = newCellArea
+			break
+		} else if i == len(page.cellAreaParsed)-1 {
+			panic("last page, didn't find what we looking for")
+		}
+	}
 
-func updateDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed) {
-	fmt.Println("update divider?")
-	fmt.Println("cells")
+	cellArea := []byte{}
+	pointers := []byte{}
+	lastPointer := PageSize
+
+	for _, v := range page.cellAreaParsed {
+		cellArea = append(cellArea, v...)
+		lastPointer -= len(v)
+		pointers = append(pointers, intToBinary(lastPointer, 2)...)
+	}
+
+	page.pointers = pointers
+	page.cellArea = cellArea
+
+	writer := NewWriter()
+	writer.softwiteToFile(page, page.pageNumber, firstPage)
+
+	if len(parents) == 0 {
+		return
+	}
+
+	if len(page.cellAreaParsed) == 0 {
+		panic("cell area parsed 0 in update dividr")
+	}
+
+	lastCell := page.cellAreaParsed[0]
+	// mostRightPageNumber := int(binary.BigEndian.Uint16(lastCell[:4]))
+	mostRightRowId = int(binary.BigEndian.Uint16(lastCell[4:6]))
+
+	parent := parents[len(parents)-1]
+	parents = parents[:len(parents)-1]
+
+	updateDivider(parent, parents, mostRightRowId, page.pageNumber, firstPage)
+
+}
+
+// we need update recursively parent too
+
+func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed, parents []*PageParsed) {
+
+	fmt.Println("what divider are we adding?")
 	fmt.Println(cells)
-	fmt.Println("start index, endIndex")
-	fmt.Println(startIndex, endIndex)
+	fmt.Println("at position", startIndex, endIndex)
 
 	if page.btreeType != int(TableBtreeInteriorCell) {
 		panic("onyl divider for interior cell tree, update divider")
@@ -163,7 +206,20 @@ func updateDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, fir
 
 	page.cellArea = contentAreaFirst
 	cellAreaParsed := dbReadparseCellArea(byte(page.btreeType), contentAreaFirst)
+	pointers := []byte{}
+	lastPointer := PageSize
+	for _, v := range cellAreaParsed {
+		lastPointer -= len(v)
+		pointers = append(pointers, intToBinary(lastPointer, 2)...)
+	}
+	fmt.Println("cell area parsed??", cellAreaParsed)
+	fmt.Println("right most page??", cellAreaParsed[0][:4])
+	page.rightMostpointer = cellAreaParsed[0][:4]
 	page.cellAreaParsed = cellAreaParsed
+	page.pointers = pointers
+
+	fmt.Println(page.cellArea)
+	fmt.Println(page.cellAreaParsed)
 
 	page.numberofCells = len(cellAreaParsed)
 	page.startCellContentArea = PageSize - len(contentAreaFirst)
@@ -175,6 +231,17 @@ func updateDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, fir
 	if page.pageNumber == 0 {
 		firstPage = page
 	}
+
+	if len(parents) == 0 {
+		return
+	}
+
+	lastCell := page.cellAreaParsed[0]
+	mostRightRowId := int(binary.BigEndian.Uint16(lastCell[4:6]))
+	parent := parents[len(parents)-1]
+	parents = parents[:len(parents)-1]
+
+	updateDivider(parent, parents, mostRightRowId, page.pageNumber, firstPage)
 
 	// check if cell area overflow page
 	// writer.writeToFile(assembleDbPage(page), pageNumber, "", firstPage)
@@ -312,8 +379,6 @@ func dbReadparseCellArea(btreeType byte, cellAreaContentTmp []byte) [][]byte {
 	for len(cellAreaContentTmp) > 0 {
 		if btreeType == byte(TableBtreeInteriorCell) {
 			cellAreaParsed = append(cellAreaParsed, cellAreaContentTmp[:6])
-			fmt.Println("before tratedy??")
-			fmt.Println(cellAreaContentTmp)
 			cellAreaContentTmp = cellAreaContentTmp[6:]
 		} else if btreeType == byte(TableBtreeLeafCell) {
 			if cellAreaContentTmp[0] > 127 {

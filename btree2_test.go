@@ -81,7 +81,7 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
-	found, _, page, parents := search(0, 7, []PageParsed{})
+	found, _, page, parents := search(0, 7, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find rowid 7")
@@ -97,7 +97,7 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 	if !reflect.DeepEqual(parents[0].pageNumber, 0) {
 		t.Errorf("expect parent to be page: %v, instead we got: %v", parents[0].pageNumber, 0)
 	}
-	found, _, page, parents = search(0, 12, []PageParsed{})
+	found, _, page, parents = search(0, 12, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 12")
@@ -114,7 +114,7 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		t.Errorf("expect parent to be page: %v, instead we got: %v", parents[0].pageNumber, 0)
 	}
 
-	found, _, page, parents = search(0, 4, []PageParsed{})
+	found, _, page, parents = search(0, 4, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 4")
@@ -131,7 +131,7 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		t.Errorf("expected to found result on page: %v, instead we got: %v", 1, page.pageNumber)
 	}
 
-	found, _, page, parents = search(0, 1, []PageParsed{})
+	found, _, page, parents = search(0, 1, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 1")
@@ -212,7 +212,7 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
-	found, _, page, parents := search(0, 13, []PageParsed{})
+	found, _, page, parents := search(0, 13, []*PageParsed{})
 
 	if found {
 		t.Errorf("Shouldn't find rowid 13 in any of pages")
@@ -344,7 +344,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 	writer.writeToFile(assembleDbPage(PageParsed{}), 5, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(sixthPage), 6, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(seventhPage), 7, "", &server.firstPage)
-	found, index, pageFound, parents := search(0, 7, []PageParsed{})
+	found, index, pageFound, parents := search(0, 7, []*PageParsed{})
 
 	fmt.Println("lets see what we found")
 	fmt.Println(found)
@@ -369,7 +369,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 		t.Errorf("expect parent to be page: %v, instead we got: %v", parents[1].pageNumber, 6)
 	}
 
-	found, _, pageFound, parents = search(0, 12, []PageParsed{})
+	found, _, pageFound, parents = search(0, 12, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 12")
@@ -388,7 +388,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 	if !reflect.DeepEqual(parents[1].pageNumber, 7) {
 		t.Errorf("expect parent to be page: %v, instead we got: %v", parents[1].pageNumber, 7)
 	}
-	found, _, pageFound, parents = search(0, 4, []PageParsed{})
+	found, _, pageFound, parents = search(0, 4, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 4")
@@ -408,7 +408,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 	if !reflect.DeepEqual(parents[1].pageNumber, 6) {
 		t.Errorf("expect parent to be page: %v, instead we got: %v", parents[1].pageNumber, 6)
 	}
-	found, _, pageFound, parents = search(0, 1, []PageParsed{})
+	found, _, pageFound, parents = search(0, 1, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 1")
@@ -427,7 +427,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 	if !reflect.DeepEqual(parents[1].pageNumber, 6) {
 		t.Errorf("expect parent to be page: %v, instead we got: %v", parents[1].pageNumber, 6)
 	}
-	found, _, pageFound, parents = search(0, 16, []PageParsed{})
+	found, _, pageFound, parents = search(0, 16, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find result rowid 16")
@@ -460,7 +460,7 @@ func TestUpdateDividerSameAmount(t *testing.T) {
 		cellAreaSize:         len(cellArea),
 		cellAreaParsed:       cellAreaParsed,
 		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{},
+		rightMostpointer:     []byte{0, 0, 0, 4},
 		cellArea:             cellArea,
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
@@ -471,7 +471,7 @@ func TestUpdateDividerSameAmount(t *testing.T) {
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}, {rowId: 13, pageNumber: 3}}
 
-	updateDivider(&zeroPage, cells, 6, 6*3, &zeroPage)
+	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -495,6 +495,12 @@ func TestUpdateDividerSameAmount(t *testing.T) {
 	if zeroPageMemory.startCellContentArea != PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]) {
 		t.Errorf("start of cell content should be: %v, got: %v", PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]), zeroPageMemory.startCellContentArea)
 	}
+
+	expectedRightMostPointer := []byte{0, 0, 0, 4}
+
+	if !reflect.DeepEqual(zeroPageMemory.rightMostpointer, expectedRightMostPointer) {
+		t.Errorf("expected right most pointer to be: %v, instead we got: %v", expectedRightMostPointer, zeroPageMemory.rightMostpointer)
+	}
 }
 
 func TestUpdateDividerLessAmount(t *testing.T) {
@@ -509,7 +515,7 @@ func TestUpdateDividerLessAmount(t *testing.T) {
 		btreeType:            int(TableBtreeInteriorCell),
 		numberofCells:        len(cellAreaParsed),
 		cellAreaSize:         len(cellArea),
-		rightMostpointer:     []byte{},
+		rightMostpointer:     []byte{0, 0, 0, 4},
 		cellArea:             cellArea,
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
@@ -520,7 +526,7 @@ func TestUpdateDividerLessAmount(t *testing.T) {
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}}
 
-	updateDivider(&zeroPage, cells, 6, 6*3, &zeroPage)
+	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -544,6 +550,12 @@ func TestUpdateDividerLessAmount(t *testing.T) {
 	if zeroPageMemory.startCellContentArea != PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]) {
 		t.Errorf("start of cell content should be: %v, got: %v", PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]), zeroPageMemory.startCellContentArea)
 	}
+
+	expectedRightMostPointer := []byte{0, 0, 0, 4}
+
+	if !reflect.DeepEqual(zeroPageMemory.rightMostpointer, expectedRightMostPointer) {
+		t.Errorf("expected right most pointer to be: %v, instead we got: %v", expectedRightMostPointer, zeroPageMemory.rightMostpointer)
+	}
 }
 
 func TestUpdateDividerGreaterAmount(t *testing.T) {
@@ -558,7 +570,7 @@ func TestUpdateDividerGreaterAmount(t *testing.T) {
 		btreeType:            int(TableBtreeInteriorCell),
 		numberofCells:        len(cellAreaParsed),
 		cellAreaSize:         len(cellArea),
-		rightMostpointer:     []byte{},
+		rightMostpointer:     []byte{0, 0, 0, 4},
 		cellArea:             cellArea,
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
@@ -572,7 +584,7 @@ func TestUpdateDividerGreaterAmount(t *testing.T) {
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}, {rowId: 13, pageNumber: 3}, {rowId: 14, pageNumber: 5}}
 
-	updateDivider(&zeroPage, cells, 6, 6*3, &zeroPage)
+	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -598,6 +610,263 @@ func TestUpdateDividerGreaterAmount(t *testing.T) {
 	if zeroPageMemory.startCellContentArea != PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]) {
 		t.Errorf("start of cell content should be: %v, got: %v", PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]), zeroPageMemory.startCellContentArea)
 	}
+}
+
+func TestUpdateTestRightMostPointerWhenUpdatePointerWithNewPage(t *testing.T) {
+	clearDbFile("test")
+	cellAreaParsed := [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}, {0, 0, 0, 2, 0, 8}, {0, 0, 0, 1, 0, 5}}
+	cellArea := []byte{0, 0, 0, 4, 0, 16, 0, 0, 0, 3, 0, 12, 0, 0, 0, 2, 0, 8, 0, 0, 0, 1, 0, 5}
+	var zeroPage = PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		pageNumber:           0,
+		cellAreaParsed:       cellAreaParsed,
+		btreeType:            int(TableBtreeInteriorCell),
+		numberofCells:        len(cellAreaParsed),
+		cellAreaSize:         len(cellArea),
+		rightMostpointer:     []byte{0, 0, 0, 4},
+		cellArea:             cellArea,
+		isLeaf:               true,
+		startCellContentArea: PageSize - 6*4,
+		isOverflow:           true,
+		leftSibling:          nil,
+		rightSiblisng:        nil,
+	}
+
+	fmt.Println("zero area cell page?")
+	fmt.Println(zeroPage.cellArea)
+
+	cells := []Cell{{rowId: 18, pageNumber: 5}}
+
+	modifyDivider(&zeroPage, cells, 0, 6, &zeroPage, []*PageParsed{})
+
+	reader := NewReader("")
+	zeroPageMemory := reader.readFromMemory(0)
+
+	cellAreaParsedExpected := [][]byte{[]byte{0, 0, 0, 5, 0, 18}}
+	cellAreaParsedExpected = append(cellAreaParsedExpected, cellAreaParsed[1])
+	cellAreaParsedExpected = append(cellAreaParsedExpected, cellAreaParsed[2])
+	cellAreaParsedExpected = append(cellAreaParsedExpected, cellAreaParsed[3])
+
+	if !reflect.DeepEqual(cellAreaParsedExpected, zeroPageMemory.cellAreaParsed) {
+		t.Errorf("expected cell area parsed to be: %v, instead we got: %v", cellAreaParsedExpected, zeroPageMemory.cellAreaParsed)
+	}
+
+	if zeroPageMemory.cellAreaSize != len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]) {
+		t.Errorf("cell area size should be: %v, got: %v", len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]), zeroPageMemory.cellAreaSize)
+	}
+
+	if zeroPageMemory.numberofCells != len(cellAreaParsedExpected) {
+		t.Errorf("number of cell should be: %v, got: %v", len(cellAreaParsedExpected), zeroPageMemory.numberofCells)
+	}
+
+	if zeroPageMemory.startCellContentArea != PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]) {
+		t.Errorf("start of cell content should be: %v, got: %v", PageSize-len(cellAreaParsedExpected)*len(cellAreaParsedExpected[0]), zeroPageMemory.startCellContentArea)
+	}
+
+	expectedRightMostPointer := []byte{0, 0, 0, 5}
+
+	if !reflect.DeepEqual(zeroPageMemory.rightMostpointer, expectedRightMostPointer) {
+		t.Errorf("expected right most pointer to be: %v, instead we got: %v", expectedRightMostPointer, zeroPageMemory.rightMostpointer)
+	}
+}
+
+func TestUpdateDividerWithParentUpdate(t *testing.T) {
+	zeroPagecellAreaParsed := [][]byte{{0, 0, 0, 1, 0, 16}}
+	zeroPagecellArea := []byte{0, 0, 0, 1, 0, 16}
+	zeroPagePointers := append([]byte{}, intToBinary(PageSize-len(zeroPagecellArea), 2)...)
+	var zeroPage = PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		pageNumber:           0,
+		cellAreaParsed:       zeroPagecellAreaParsed,
+		btreeType:            int(TableBtreeInteriorCell),
+		numberofCells:        len(zeroPagecellAreaParsed),
+		cellAreaSize:         len(zeroPagecellArea),
+		rightMostpointer:     []byte{0, 0, 0, 4},
+		cellArea:             zeroPagecellArea,
+		pointers:             zeroPagePointers,
+		isLeaf:               true,
+		startCellContentArea: PageSize - 6*4,
+		isOverflow:           true,
+		leftSibling:          nil,
+		rightSiblisng:        nil,
+	}
+	clearDbFile("test")
+	firstPagecellAreaParsed := [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}, {0, 0, 0, 2, 0, 8}, {0, 0, 0, 8, 0, 5}}
+	firstPagecellArea := []byte{0, 0, 0, 4, 0, 16, 0, 0, 0, 3, 0, 12, 0, 0, 0, 2, 0, 8, 0, 0, 0, 8, 0, 5}
+	var firstPage = PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		pageNumber:           1,
+		cellAreaParsed:       firstPagecellAreaParsed,
+		btreeType:            int(TableBtreeInteriorCell),
+		numberofCells:        len(firstPagecellAreaParsed),
+		cellAreaSize:         len(firstPagecellArea),
+		rightMostpointer:     []byte{0, 0, 0, 4},
+		cellArea:             firstPagecellArea,
+		isLeaf:               true,
+		startCellContentArea: PageSize - 6*4,
+		isOverflow:           true,
+		leftSibling:          nil,
+		rightSiblisng:        nil,
+	}
+
+	fmt.Println("zero area cell page?")
+	fmt.Println(zeroPage.cellArea)
+
+	cells := []Cell{{rowId: 18, pageNumber: 5}}
+
+	modifyDivider(&firstPage, cells, 0, 6, &zeroPage, []*PageParsed{&zeroPage})
+
+	reader := NewReader("")
+	zeroPageMemory := reader.readFromMemory(0)
+
+	expectedCellAreaZeroPage := []byte{0, 0, 0, 1, 0, 18}
+	expectedCellAreaParsedZeroPage := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaZeroPage)
+
+	if !reflect.DeepEqual(expectedCellAreaZeroPage, zeroPageMemory.cellArea) {
+		t.Errorf("expected zero page to be cell area: %v, instead we got: %v", expectedCellAreaZeroPage, zeroPageMemory.cellArea)
+	}
+
+	if !reflect.DeepEqual(expectedCellAreaParsedZeroPage, zeroPageMemory.cellAreaParsed) {
+		t.Errorf("expected zero page to be cell area: %v, instead we got: %v", expectedCellAreaParsedZeroPage, zeroPageMemory.cellAreaParsed)
+	}
+
+	if zeroPageMemory.numberofCells != 1 {
+		t.Errorf("expected zero page to have 1 cell, instead we got: %v", zeroPageMemory.numberofCells)
+	}
+
+	expectedPointers := append([]byte{}, intToBinary(PageSize-len(zeroPagecellArea), 2)...)
+
+	if !reflect.DeepEqual(expectedPointers, zeroPage.pointers) {
+		t.Errorf("expected zero page pointers to be: %v, instead we got: %v", expectedPointers, zeroPage.pointers)
+	}
+
+}
+
+func TestUpdateDividerWithParentandGrandParentUpdate(t *testing.T) {
+	clearDbFile("test")
+	zeroPagecellAreaParsed := [][]byte{{0, 0, 0, 1, 0, 16}}
+	zeroPagecellArea := []byte{0, 0, 0, 1, 0, 16}
+	zeroPagePointers := append([]byte{}, intToBinary(PageSize-len(zeroPagecellArea), 2)...)
+	var zeroPage = PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		pageNumber:           0,
+		cellAreaParsed:       zeroPagecellAreaParsed,
+		btreeType:            int(TableBtreeInteriorCell),
+		numberofCells:        len(zeroPagecellAreaParsed),
+		cellAreaSize:         len(zeroPagecellArea),
+		rightMostpointer:     []byte{0, 0, 0, 4},
+		cellArea:             zeroPagecellArea,
+		pointers:             zeroPagePointers,
+		isLeaf:               true,
+		startCellContentArea: PageSize - 6*4,
+		isOverflow:           true,
+		leftSibling:          nil,
+		rightSiblisng:        nil,
+	}
+
+	firstPagecellAreaParsed := [][]byte{{0, 0, 0, 2, 0, 16}}
+	firstPagecellArea := []byte{0, 0, 0, 2, 0, 16}
+	firstPagePointers := append([]byte{}, intToBinary(PageSize-len(firstPagecellArea), 2)...)
+	var firstPage = PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		pageNumber:           1,
+		cellAreaParsed:       firstPagecellAreaParsed,
+		btreeType:            int(TableBtreeInteriorCell),
+		numberofCells:        len(firstPagecellAreaParsed),
+		cellAreaSize:         len(firstPagecellArea),
+		rightMostpointer:     []byte{0, 0, 0, 4},
+		cellArea:             firstPagecellArea,
+		pointers:             firstPagePointers,
+		isLeaf:               true,
+		startCellContentArea: PageSize - 6*4,
+		isOverflow:           true,
+		leftSibling:          nil,
+		rightSiblisng:        nil,
+	}
+
+	secondPagecellAreaParsed := [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}, {0, 0, 0, 9, 0, 8}, {0, 0, 0, 8, 0, 5}}
+	secondPagecellArea := []byte{0, 0, 0, 4, 0, 16, 0, 0, 0, 3, 0, 12, 0, 0, 0, 9, 0, 8, 0, 0, 0, 8, 0, 5}
+	var secondPage = PageParsed{
+		dbHeader:             header(),
+		dbHeaderSize:         100,
+		pageNumber:           2,
+		cellAreaParsed:       secondPagecellAreaParsed,
+		btreeType:            int(TableBtreeInteriorCell),
+		numberofCells:        len(secondPagecellAreaParsed),
+		cellAreaSize:         len(secondPagecellArea),
+		rightMostpointer:     []byte{0, 0, 0, 4},
+		cellArea:             secondPagecellArea,
+		isLeaf:               true,
+		startCellContentArea: PageSize - 6*4,
+		isOverflow:           true,
+		leftSibling:          nil,
+		rightSiblisng:        nil,
+	}
+
+	fmt.Println("zero area cell page?")
+	fmt.Println(zeroPage.cellArea)
+
+	cells := []Cell{{rowId: 18, pageNumber: 5}}
+
+	writer := NewWriter()
+
+	writer.softwiteToFile(&zeroPage, 0, &zeroPage)
+	writer.softwiteToFile(&firstPage, 1, &zeroPage)
+	writer.softwiteToFile(&secondPage, 2, &zeroPage)
+
+	modifyDivider(&secondPage, cells, 0, 6, &zeroPage, []*PageParsed{&zeroPage, &firstPage})
+
+	reader := NewReader("")
+	zeroPageMemory := reader.readFromMemory(0)
+	firstPageMemory := reader.readFromMemory(1)
+
+	expectedCellAreaZeroPage := []byte{0, 0, 0, 1, 0, 18}
+	expectedCellAreaParsedZeroPage := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaZeroPage)
+
+	if !reflect.DeepEqual(expectedCellAreaZeroPage, zeroPageMemory.cellArea) {
+		t.Errorf("expected zero page to be cell area: %v, instead we got: %v", expectedCellAreaZeroPage, zeroPageMemory.cellArea)
+	}
+
+	if !reflect.DeepEqual(expectedCellAreaParsedZeroPage, zeroPageMemory.cellAreaParsed) {
+		t.Errorf("expected zero page to be cell area: %v, instead we got: %v", expectedCellAreaParsedZeroPage, zeroPageMemory.cellAreaParsed)
+	}
+
+	if zeroPageMemory.numberofCells != 1 {
+		t.Errorf("expected zero page to have 1 cell, instead we got: %v", zeroPageMemory.numberofCells)
+	}
+
+	expectedPointersZeroPage := append([]byte{}, intToBinary(PageSize-len(zeroPagecellArea), 2)...)
+
+	if !reflect.DeepEqual(expectedPointersZeroPage, zeroPage.pointers) {
+		t.Errorf("expected first page pointers to be: %v, instead we got: %v", expectedPointersZeroPage, zeroPage.pointers)
+	}
+
+	expectedCellAreaFirstPage := []byte{0, 0, 0, 2, 0, 18}
+	expectedCellAreaParsedFirstPage := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaFirstPage)
+
+	if !reflect.DeepEqual(expectedCellAreaFirstPage, firstPageMemory.cellArea) {
+		t.Errorf("expected first page to be cell area: %v, instead we got: %v", expectedCellAreaFirstPage, firstPageMemory.cellArea)
+	}
+
+	if !reflect.DeepEqual(expectedCellAreaParsedFirstPage, firstPageMemory.cellAreaParsed) {
+		t.Errorf("expected first page to be cell area: %v, instead we got: %v", expectedCellAreaParsedFirstPage, zeroPageMemory.cellAreaParsed)
+	}
+
+	if firstPageMemory.numberofCells != 1 {
+		t.Errorf("expected first page to have 1 cell, instead we got: %v", firstPageMemory.numberofCells)
+	}
+
+	expectedPointersFirstPage := append([]byte{}, intToBinary(PageSize-len(zeroPagecellArea), 2)...)
+
+	if !reflect.DeepEqual(expectedPointersFirstPage, zeroPage.pointers) {
+		t.Errorf("expected first page pointers to be: %v, instead we got: %v", expectedPointersFirstPage, zeroPage.pointers)
+	}
+
 }
 
 func TestFindSiblingOnlyRightSiblingsAsLastPointer(t *testing.T) {
@@ -987,7 +1256,7 @@ func TestInsertNewData(t *testing.T) {
 
 	newCell := createCell(TableBtreeLeafCell, &PageParsed{latesRow: &LastPageParseLatestRow{rowId: 0}}, "Alice")
 
-	firstPage.insertData(newCell, &zeroPage, &zeroPage)
+	firstPage.insertData(newCell, &zeroPage, []*PageParsed{&zeroPage})
 
 	expectedCellArea := append([]byte{}, newCell.data...)
 	expectedCellArea = append(expectedCellArea, cell.data...)
@@ -1046,7 +1315,7 @@ func TestBalancingSplitRootIntTwoChildren(t *testing.T) {
 	writer := NewWriter()
 
 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	balancingForNode(zeroPage, []PageParsed{}, &server.firstPage)
+	balancingForNode(zeroPage, []*PageParsed{}, &server.firstPage)
 	writer.flushPages("", &server.firstPage)
 
 	reader := NewReader("")
@@ -1144,7 +1413,7 @@ func TestBalancingSplitRootIntOneChild(t *testing.T) {
 	reader := NewReader("")
 
 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	balancingForNode(zeroPage, []PageParsed{}, &server.firstPage)
+	balancingForNode(zeroPage, []*PageParsed{}, &server.firstPage)
 	writer.flushPages("", &server.firstPage)
 
 	zeroPageSaved := reader.readFromMemory(0)
@@ -1242,7 +1511,7 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 
-	balancingForNode(firstPage, []PageParsed{zeroPage}, &server.firstPage)
+	balancingForNode(firstPage, []*PageParsed{&zeroPage}, &server.firstPage)
 	writer.flushPages("", &server.firstPage)
 
 	zeroPageSaved := reader.readFromMemory(0)
@@ -1999,3 +2268,235 @@ func TestInsertOverflowPage(t *testing.T) {
 		t.Errorf("expected cell area to be: %v, got: %v", expectedCellArea, secondPageSaved.cellArea)
 	}
 }
+
+// WE need to write test for distributing now 0x05 pages
+// we forgot updating right pointer
+// func TestInsert111(t *testing.T) {
+// 	clearDbFile("test")
+
+// 	cellArea := []byte{0, 0, 0, 14, 0, 41, 0, 0, 0, 13, 0, 39, 0, 0, 0, 12, 0, 36, 0, 0, 0, 11, 0, 33, 0, 0, 0, 10, 0, 30, 0, 0, 0, 9, 0, 27, 0, 0, 0, 8, 0, 24, 0, 0, 0, 7, 0, 21, 0, 0, 0, 6, 0, 18, 0, 0, 0, 5, 0, 15, 0, 0, 0, 4, 0, 12, 0, 0, 0, 3, 0, 9, 0, 0, 0, 2, 0, 48, 0, 0, 0, 1, 0, 3}
+// 	84 + 100 + 12
+// 	cellAreaParsed := dbReadparseCellArea(byte(TableBtreeInteriorCell), cellArea)
+// 	fmt.Println("cell area length?")
+// 	fmt.Println(len(cellArea))
+// 	fmt.Println("cell area parsed??")
+// 	fmt.Println(cellAreaParsed)
+// 	var zeroPage = PageParsed{
+// 		dbHeader:             header(),
+// 		dbHeaderSize:         100,
+// 		btreePageHeaderSize:  12,
+// 		pageNumber:           0,
+// 		cellAreaParsed:       cellAreaParsed,
+// 		btreeType:            int(TableBtreeInteriorCell),
+// 		rightMostpointer:     []byte{0, 0, 0, 2},
+// 		cellArea:             cellArea,
+// 		cellAreaSize:         12,
+// 		numberofCells:        2,
+// 		startCellContentArea: PageSize - 12,
+// 		isOverflow:           false,
+// 		leftSibling:          nil,
+// 		rightSiblisng:        nil,
+// 		isLeaf:               false,
+// 	}
+
+// 	server := ServerStruct{
+// 		firstPage: zeroPage,
+// 	}
+
+// 	var firstPage = PageParsed{
+// 		dbHeader:             DbHeader{},
+// 		dbHeaderSize:         0,
+// 		btreePageHeaderSize:  8,
+// 		pageNumber:           1,
+// 		btreeType:            int(TableBtreeLeafCell),
+// 		cellAreaParsed:       [][]byte{},
+// 		startCellContentArea: PageSize,
+// 		isOverflow:           false,
+// 		leftSibling:          nil,
+// 		isLeaf:               true,
+// 		rightSiblisng:        nil,
+// 	}
+
+// 	cell := creareARowItem(100, 1)
+// 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
+
+// 	var secondPage = PageParsed{
+// 		dbHeader:             DbHeader{},
+// 		dbHeaderSize:         0,
+// 		btreePageHeaderSize:  8,
+// 		pageNumber:           1,
+// 		numberofCells:        1,
+// 		btreeType:            int(TableBtreeLeafCell),
+// 		cellAreaParsed:       cellParsed,
+// 		startCellContentArea: PageSize - cell.dataLength,
+// 		cellAreaSize:         cell.dataLength,
+// 		cellArea:             cell.data,
+// 		isOverflow:           false,
+// 		leftSibling:          nil,
+// 		isLeaf:               true,
+// 		rightSiblisng:        nil,
+// 	}
+
+// 	writer := NewWriter()
+
+// 	usableSpacePerPage = 300
+
+// 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
+// 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
+// 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+
+// 	// for i := 2; i < 49; i++ {
+// 	// 	fmt.Println("iteration", i)
+// 	// 	cell1 := creareARowItem(100, i)
+// 	// 	insert(i, cell1, &server.firstPage)
+
+// 	// }
+// 	// reader := NewReader("")
+// 	// zeroPageSaved := reader.readFromMemory(0)
+// 	// firstPageSaved := reader.readFromMemory(1)
+// 	// secondPageSaved := reader.readFromMemory(2)
+// 	// fifteenPageSaved := reader.readFromMemory(14)
+// 	// // sixteenPageSaved := reader.readFromMemory(16)
+// 	// fmt.Println("zero page")
+// 	// fmt.Println(zeroPageSaved.cellAreaParsed)
+// 	// fmt.Println("first page")
+// 	// fmt.Println(firstPageSaved.cellAreaParsed)
+// 	// fmt.Println("secpmd page")
+// 	// fmt.Println(secondPageSaved.cellAreaParsed)
+// 	// fmt.Println("fiften page")
+// 	// fmt.Println(fifteenPageSaved.cellAreaParsed)
+// 	// fmt.Println("sixteen page")
+// 	// // fmt.Println(sixteenPageSaved.cellAreaParsed)
+
+//		// fmt.Println("end :)")
+//	}
+// func TestInsert111(t *testing.T) {
+// 	clearDbFile("test")
+// 	PageSize = 300
+// 	usableSpacePerPage = 200
+// 	var zeroPage = PageParsed{
+// 		dbHeader:             header(),
+// 		dbHeaderSize:         100,
+// 		btreePageHeaderSize:  12,
+// 		pageNumber:           0,
+// 		cellAreaParsed:       [][]byte{{0, 0, 0, 2, 0, 1}, {0, 0, 0, 1, 0, 0}},
+// 		btreeType:            int(TableBtreeInteriorCell),
+// 		rightMostpointer:     []byte{0, 0, 0, 2},
+// 		cellArea:             []byte{0, 0, 0, 2, 0, 1, 0, 0, 0, 1, 0, 0},
+// 		cellAreaSize:         12,
+// 		numberofCells:        2,
+// 		startCellContentArea: PageSize - 12,
+// 		isOverflow:           false,
+// 		leftSibling:          nil,
+// 		rightSiblisng:        nil,
+// 		isLeaf:               false,
+// 	}
+
+// 	server := ServerStruct{
+// 		firstPage: zeroPage,
+// 	}
+
+// 	var firstPage = PageParsed{
+// 		dbHeader:             DbHeader{},
+// 		dbHeaderSize:         0,
+// 		btreePageHeaderSize:  8,
+// 		pageNumber:           1,
+// 		btreeType:            int(TableBtreeLeafCell),
+// 		cellAreaParsed:       [][]byte{},
+// 		startCellContentArea: PageSize,
+// 		isOverflow:           false,
+// 		leftSibling:          nil,
+// 		isLeaf:               true,
+// 		rightSiblisng:        nil,
+// 	}
+
+// 	cell := creareARowItem(100, 1)
+// 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
+
+// 	var secondPage = PageParsed{
+// 		dbHeader:             DbHeader{},
+// 		dbHeaderSize:         0,
+// 		btreePageHeaderSize:  8,
+// 		pageNumber:           1,
+// 		numberofCells:        1,
+// 		btreeType:            int(TableBtreeLeafCell),
+// 		cellAreaParsed:       cellParsed,
+// 		startCellContentArea: PageSize - cell.dataLength,
+// 		cellAreaSize:         cell.dataLength,
+// 		cellArea:             cell.data,
+// 		isOverflow:           false,
+// 		leftSibling:          nil,
+// 		isLeaf:               true,
+// 		rightSiblisng:        nil,
+// 	}
+
+// 	writer := NewWriter()
+
+// 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
+// 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
+// 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+
+// 	for i := 2; i < 63; i++ {
+// 		fmt.Println("iteration", i)
+// 		cell1 := creareARowItem(100, i)
+// 		insert(i, cell1, &server.firstPage)
+
+// 	}
+// 	cmd := exec.Command("clear") // Use "clear" for Linux and macOS
+// 	cmd.Stdout = os.Stdout
+// 	cmd.Run()
+// 	for i := 63; i < 64; i++ {
+// 		fmt.Println("iteration", i)
+// 		cell1 := creareARowItem(100, i)
+// 		insert(i, cell1, &server.firstPage)
+
+// 	}
+// 	reader := NewReader("")
+// 	zeroPageSaved := reader.readFromMemory(0)
+// 	twentyFifthPageSaved := reader.readFromMemory(25)
+
+// 	expectedCellAreaContentPageZero := []byte{0, 0, 0, 25, 0, 47}
+// 	// header, content, pointer
+// 	//100 + 146 + 48 = 194 + 12
+// 	expectedCellAreaParsedContentPageZero := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaContentPageZero)
+// 	if !reflect.DeepEqual(zeroPageSaved.cellArea, expectedCellAreaContentPageZero) {
+// 		t.Errorf("Expected page zero cell area to be: %v, instead we got: %v", expectedCellAreaContentPageZero, zeroPageSaved.cellArea)
+// 	}
+
+// 	if !reflect.DeepEqual(zeroPageSaved.cellAreaParsed, expectedCellAreaParsedContentPageZero) {
+// 		t.Errorf("Expected page zero cell area parsed to be: %v, instead we got: %v", expectedCellAreaParsedContentPageZero, zeroPageSaved.cellAreaParsed)
+// 	}
+
+// 	if zeroPageSaved.numberofCells != 1 {
+// 		t.Errorf("Expected page zero to have only 1 cell, instead we got: %v", zeroPageSaved.numberofCells)
+// 	}
+
+// 	expectedPointerPageZero := intToBinary(PageSize-len(expectedCellAreaContentPageZero), 2)
+
+// 	if !reflect.DeepEqual(zeroPageSaved.pointers, expectedPointerPageZero) {
+// 		t.Errorf("Expected page zero pointers to be: %v, instead we got: %v", zeroPageSaved.pointers, expectedPointerPageZero)
+// 	}
+
+// 	if zeroPageSaved.startCellContentArea != PageSize-len(expectedCellAreaContentPageZero) {
+// 		t.Errorf("expected cell area to start at :%v, instead we got: %v", PageSize-len(expectedCellAreaContentPageZero), zeroPageSaved.startCellContentArea)
+// 	}
+// 	// firstPageSaved := reader.readFromMemory(1)
+// 	// secondPageSaved := reader.readFromMemory(2)
+// 	// fifteenPageSaved := reader.readFromMemory(15)
+// 	// sixteenPageSaved := reader.readFromMemory(16)
+// 	fmt.Println("zero page")
+// 	fmt.Println(zeroPageSaved.cellAreaParsed)
+
+// 	fmt.Println("twenty fifth")
+// 	fmt.Printf("%+v", twentyFifthPageSaved)
+// 	// fmt.Println("first page")
+// 	// fmt.Println(firstPageSaved.cellAreaParsed)
+// 	// fmt.Println("secpmd page")
+// 	// fmt.Println(secondPageSaved.cellAreaParsed)
+// 	// fmt.Println("fiften page")
+// 	// fmt.Println("s page")
+
+// 	t.Error("")
+
+// 	fmt.Println("end :)")
+// }
