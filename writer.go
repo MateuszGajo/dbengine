@@ -53,11 +53,7 @@ func (writer WriterStruct) softwiteToFile(data *PageParsed, page int, firstPage 
 func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
 
 	for _, v := range softWritePages {
-		fmt.Println("flush ``````")
-		fmt.Println("flush ``````")
-		fmt.Println("flush ``````")
-		fmt.Printf("%+v", v)
-		fmt.Println("flush ``````")
+
 		writer.writeToFile(assembleDbPage(v), v.pageNumber, conId, firstPage)
 		if v.isOverflow {
 			panic("can't save overflow page")

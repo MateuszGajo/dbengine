@@ -99,7 +99,7 @@ func exectueCommand(input string) {
 		dbInfo:   DbInfo{},
 		reader:   NewReader(conId),
 		writer:   NewWriter(),
-		sequence: make(map[string]int),
+		sequence: sequence,
 	}
 
 	data := NewReader(server.conId).readDbPage(0)
@@ -133,6 +133,8 @@ type ServerStruct struct {
 	sequence map[string]int
 }
 
+var sequence = make(map[string]int)
+
 func main() {
 	// for i := 0; i < 55; i++ {
 	// 	input := fmt.Sprintf("CREATE TABLE user%v (id INTEGER PRIMARY KEY,name TEXT)", i)
@@ -141,10 +143,17 @@ func main() {
 	input := "CREATE TABLE user (id INTEGER PRIMARY KEY,name TEXT)"
 	exectueCommand(input)
 
-	input = "CREATE TABLE user1 (id INTEGER PRIMARY KEY,name TEXT)"
-	exectueCommand(input)
-	input = "CREATE TABLE user2 (id INTEGER PRIMARY KEY,name TEXT)"
-	exectueCommand(input)
+	for i := 0; i < 38; i++ {
+		fmt.Println("iteration??", i)
+		input = "INSERT INTO user (name) values('Aliceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')"
+		//10 bytes
+		exectueCommand(input)
+	}
+
+	// input = "CREATE TABLE user1 (id INTEGER PRIMARY KEY,name TEXT)"
+	// exectueCommand(input)
+	// input = "CREATE TABLE user2 (id INTEGER PRIMARY KEY,name TEXT)"
+	// exectueCommand(input)
 
 	// input = "INSERT INTO user (name) values('Alice')"
 	// exectueCommand(input)

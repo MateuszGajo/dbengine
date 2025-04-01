@@ -44,6 +44,8 @@ const (
 	QueryTypeIndex QueryType = "index"
 )
 
+//back and start with it
+
 func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue, input string) {
 	// parse query lets assume output bellow
 	createSqlQueryData := parseCreateTableQuery(parsedQuery, input)
@@ -63,10 +65,15 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 		// pointerInSchemaToData = server.dbInfo.pageNumber + 1
 	}
 
+	rowId := 0
+	if server.firstPage.latesRow != nil {
+		rowId = server.firstPage.latesRow.rowId
+	}
+
 	// Create a cell pass cell that are already there(latest pointer etc), get created cell's length + pointers, i think length is undded, pointer is all we care about, we only need all bytes, currnet cell + new one, + header, there rest should be zeros, for starting cell value we have latest pointers, and pointers array is already there
 	// Modify headers fields after cell has been added
 	// ADD cell, defined how many cell we are added and how many values in eachg cell (length will be calculate internally)
-	cell := createCell(TableBtreeLeafCell, &server.firstPage, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointerInSchemaToData, createSqlQueryData.rawQuery)
+	cell := createCell(TableBtreeLeafCell, rowId, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointerInSchemaToData, createSqlQueryData.rawQuery)
 	allCells := cell.data
 	allCells = append(allCells, server.firstPage.cellArea...)
 	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
@@ -77,21 +84,30 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	}
 	// TODO add herre
 
-	// rootPage := server.updatePageRoot(&server.firstPage, 0, *reader, *writer, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointerInSchemaToData, createSqlQueryData.rawQuery)
+	insert(cell.rowId, cell, &server.firstPage, nil)
+
+	initRowId := 0
+
+	server.sequence[createSqlQueryData.entityName] = initRowId
+	fmt.Println("add sequence key, name", createSqlQueryData.entityName)
+
+	writer := NewWriter()
+
+	writer.flushPages("", &server.firstPage)
 
 	// firstPage := parseReadPage(rootPage, 0)
 	// server.firstPage = firstPage
 	// server.firstPage.dbHeader.schemaCookie++
 
 	// // Create empty page for data
-	// btreeHeaderForData := updateBtreeHeaderLeafTable(CreateCell{dataLength: 0, data: []byte{}}, nil)
-	// zerosLength := PageSize - len(btreeHeaderForData)
-	// zerosSpace := make([]byte, zerosLength)
+	btreeHeaderForData := updateBtreeHeaderLeafTable(CreateCell{dataLength: 0, data: []byte{}}, nil)
+	zerosLength := PageSize - len(btreeHeaderForData)
+	zerosSpace := make([]byte, zerosLength)
 
-	// emptyDataPage := btreeHeaderForData
-	// emptyDataPage = append(emptyDataPage, zerosSpace...)
+	emptyDataPage := btreeHeaderForData
+	emptyDataPage = append(emptyDataPage, zerosSpace...)
 
-	// writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, &server.firstPage)
+	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, &server.firstPage)
 
 }
 
@@ -259,12 +275,30 @@ func (server ServerStruct) handleInsertSqlQuery(parsedQuery []ParsedValue, input
 		return err
 	}
 
-	// cell := createCell(TableBtreeLeafCell, nil, dataToWrite...)
+	fmt.Println("get sequence key, name", parsedQuery[2].data)
+	rowId, ok := server.sequence[parsedQuery[2].data]
+
+	if !ok {
+		panic("couldnt find rowid")
+	}
+
+	//TODO: we need to find place to insert???
+	// 1# we could go ro right most pointer untill we on the leaf page and then takr last row id
+	// 2# scan all records?
+	// 3# keep rowid somewhere
+	// sequence map[string]int we have a place use it
+	cell := createCell(TableBtreeLeafCell, rowId, dataToWrite...)
+
+	newRowId := rowId + 1
+	server.sequence[parsedQuery[2].data] = newRowId
+	pageNumber := int(dataStartOnPage[0]) - 1
+	insert(cell.rowId, cell, &server.firstPage, &pageNumber)
 	// allCells := cell.data
 	// // TODO Concatenate this
 	// allCells = append(allCells, []byte{}...)
 
-	// writer := NewWriter()
+	writer := NewWriter()
+	writer.flushPages("", &server.firstPage)
 	// // reader := NewReader(server.conId);
 	// dataPage := res[3].columnValue
 

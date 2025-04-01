@@ -296,9 +296,12 @@ func (server *ServerStruct) insertSchema(values ...interface{}) (*PageParsed, in
 	reader := NewReader(server.conId)
 	writer := NewWriter()
 	pageToInsertData, pageNumber := server.findPageToInsertData(*reader, 0)
-	fmt.Println("checkpoint2222")
+	rowId := 0
+	if pageToInsertData.latesRow != nil {
+		rowId = pageToInsertData.latesRow.rowId
+	}
 
-	cell := createCell(BtreeType(pageToInsertData.btreeType), pageToInsertData, values...)
+	cell := createCell(BtreeType(pageToInsertData.btreeType), rowId, values...)
 
 	isSpace := server.checkIfThereIsSpace(cell, *pageToInsertData)
 	fmt.Println("checkpoint3333")
@@ -983,14 +986,11 @@ func calculateTextLength(value string) []byte {
 	// }
 }
 
-func createCell(btreeType BtreeType, latestRow *PageParsed, values ...interface{}) CreateCell {
+func createCell(btreeType BtreeType, rowId int, values ...interface{}) CreateCell {
 	if btreeType == TableBtreeLeafCell {
 		var columnValues []byte = []byte{}
 		var columnLength []byte = []byte{}
-		var schemaRowId = 0
-		if latestRow != nil {
-			schemaRowId = latestRow.latesRow.rowId
-		}
+		var schemaRowId = rowId
 
 		schemaRowId++
 

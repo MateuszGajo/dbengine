@@ -36,8 +36,8 @@ func assembleDbPage(page PageParsed) []byte {
 
 	if zerosLen < 0 {
 		fmt.Println("page number", page.pageNumber)
-		fmt.Println("cell area parsed??")
-		fmt.Println(page.cellAreaParsed)
+		// fmt.Println("cell area parsed??")
+		// fmt.Println(page.cellAreaParsed)
 		fmt.Printf("\n data length: %v, cell area length: %v", len(data), len(cellArea))
 		panic("zeros length should never be less than 0")
 	}

@@ -71,7 +71,6 @@ type PageParsed struct {
 	isOverflow           bool
 	leftSibling          *int
 	rightSiblisng        *int
-	divider              []Divider
 	pageNumber           int
 	isLeaf               bool
 }
@@ -404,11 +403,18 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		return PageParsed{
 			dbHeader:             header(),
 			dbHeaderSize:         100,
+			btreeType:            int(TableBtreeLeafCell),
+			btreePageHeaderSize:  8,
 			numberofCells:        0,
 			startCellContentArea: PageSize,
 			cellArea:             []byte{},
 			pointers:             []byte{},
+			cellAreaParsed:       [][]byte{},
+			rightMostpointer:     []byte{},
 			cellAreaSize:         0,
+			isOverflow:           false,
+			isLeaf:               true,
+			pageNumber:           0,
 			latesRow: &LastPageParseLatestRow{
 				rowId:   0,
 				data:    []byte{},
