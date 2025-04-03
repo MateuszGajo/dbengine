@@ -246,6 +246,7 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 		rootPage := PageParsed{
 			pageNumber:           node.pageNumber,
 			dbHeaderSize:         0,
+			btreePageHeaderSize:  12,
 			dbHeader:             node.dbHeader,
 			cellArea:             cellArea,
 			cellAreaParsed:       parsedCellArea,
@@ -389,10 +390,12 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 	// add new pages
 	for len(siblings) < len(numberOfCellPerPage) {
 		btreeType := TableBtreeLeafCell
+		btreeHeaderSize := 8
 		if !node.isLeaf {
 			btreeType = TableBtreeInteriorCell
+			btreeHeaderSize = 12
 		}
-		siblings = append(siblings, PageParsed{pageNumber: firstPage.dbHeader.dbSizeInPages, btreeType: int(btreeType), startCellContentArea: PageSize})
+		siblings = append(siblings, PageParsed{pageNumber: firstPage.dbHeader.dbSizeInPages, btreeType: int(btreeType), startCellContentArea: PageSize, btreePageHeaderSize: btreeHeaderSize})
 		firstPage.dbHeader.dbSizeInPages++
 	}
 

@@ -2238,8 +2238,6 @@ func TestInsertOverflowPage(t *testing.T) {
 
 	writer := NewWriter()
 
-	usableSpacePerPage = 300
-
 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
@@ -2258,13 +2256,13 @@ func TestInsertOverflowPage(t *testing.T) {
 	secondPageSaved := reader.readFromMemory(2)
 	zeroPageSaved := reader.readFromMemory(0)
 
-	zeroPageExpectedCellArea := []byte{0, 0, 0, 2, 0, 4, 0, 0, 0, 1, 0, 2}
+	zeroPageExpectedCellArea := []byte{0, 0, 0, 2, 0, 4, 0, 0, 0, 1, 0, 3}
 
 	if !reflect.DeepEqual(zeroPageSaved.cellArea, zeroPageExpectedCellArea) {
 		t.Errorf("expected cell area on zero page to be: %v, insted we got: %v", zeroPageExpectedCellArea, zeroPageSaved.cellArea)
 	}
 
-	if secondPageSaved.numberofCells != 2 {
+	if secondPageSaved.numberofCells != 1 {
 		t.Errorf("expected to have one cell, instead we got: %v", secondPageSaved.numberofCells)
 	}
 
@@ -2275,7 +2273,6 @@ func TestInsertOverflowPage(t *testing.T) {
 	}
 
 	expectedCellArea := append([]byte{}, cell3.data...)
-	expectedCellArea = append(expectedCellArea, cell2.data...)
 
 	if !reflect.DeepEqual(secondPageSaved.cellArea, expectedCellArea) {
 		t.Errorf("expected cell area to be: %v, got: %v", expectedCellArea, secondPageSaved.cellArea)
@@ -2614,7 +2611,7 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 
 	fmt.Println("len", len(twentyFifthPageSaved.cellAreaParsed))
 
-	expectedCellAreaContentPageZero := []byte{0, 0, 0, 39, 0, 73, 0, 0, 0, 25, 0, 38}
+	expectedCellAreaContentPageZero := []byte{0, 0, 0, 39, 0, 73, 0, 0, 0, 25, 0, 40}
 	expectedRightMostPointerPageZero := []byte{0, 0, 0, 39}
 
 	expectedCellAreaParsedContentPageZero := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaContentPageZero)
@@ -2628,6 +2625,10 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 
 	if zeroPageSaved.numberofCells != 2 {
 		t.Errorf("Expected page zero to have only 1 cell, instead we got: %v", zeroPageSaved.numberofCells)
+	}
+
+	if zeroPageSaved.btreePageHeaderSize != 12 {
+		t.Errorf("Expected header size to be:%v got: %v", 12, zeroPageSaved.btreePageHeaderSize)
 	}
 
 	expectedPointerPageZero := append([]byte{}, intToBinary(PageSize-6, 2)...)
@@ -2645,9 +2646,9 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 		t.Errorf("expected zero page right most pointer to be: %v, instead we got: %v", expectedRightMostPointerPageZero, zeroPageSaved.rightMostpointer)
 	}
 
-	expectedLastCellAreaTwentyFifthPage := []byte{0, 0, 0, 19, 0, 38}
+	expectedLastCellAreaTwentyFifthPage := []byte{0, 0, 0, 20, 0, 40}
 	expectedFirstCellAreaTwentyFifthPage := []byte{0, 0, 0, 1, 0, 2}
-	expectedRightMostPointerTwentyFifthPage := []byte{0, 0, 0, 19}
+	expectedRightMostPointerTwentyFifthPage := []byte{0, 0, 0, 20}
 
 	if !reflect.DeepEqual(twentyFifthPageSaved.cellAreaParsed[0], expectedLastCellAreaTwentyFifthPage) {
 		t.Errorf("expected last cell area of twnety fifth page to be: %v, instead we got: %v", expectedLastCellAreaTwentyFifthPage, twentyFifthPageSaved.cellAreaParsed[0])
@@ -2663,7 +2664,7 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	}
 
 	expectedLastCellAreaTirthyEightPage := []byte{0, 0, 0, 38, 0, 73}
-	expectedFirstCellAreaTirthyEightPage := []byte{0, 0, 0, 20, 0, 40}
+	expectedFirstCellAreaTirthyEightPage := []byte{0, 0, 0, 21, 0, 42}
 
 	if !reflect.DeepEqual(thirtEightPageSaved.cellAreaParsed[0], expectedLastCellAreaTirthyEightPage) {
 		t.Errorf("expected last cell area of twnety fifth page to be: %v, instead we got: %v", expectedLastCellAreaTirthyEightPage, thirtEightPageSaved.cellAreaParsed[0])
@@ -2686,19 +2687,19 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 
 func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 	clearDbFile("test")
-	PageSize = 211
+	PageSize = 134
 	var zeroPage = PageParsed{
 		dbHeader:             header(),
 		dbHeaderSize:         100,
 		btreePageHeaderSize:  12,
 		pageNumber:           0,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 2, 0, 1}, {0, 0, 0, 1, 0, 0}},
+		cellAreaParsed:       [][]byte{{0, 0, 0, 1, 0, 1}},
 		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 2},
-		cellArea:             []byte{0, 0, 0, 2, 0, 1, 0, 0, 0, 1, 0, 0},
-		cellAreaSize:         12,
-		numberofCells:        2,
-		startCellContentArea: PageSize - 12,
+		rightMostpointer:     []byte{0, 0, 0, 1},
+		cellArea:             []byte{0, 0, 0, 1, 0, 1},
+		cellAreaSize:         6,
+		numberofCells:        1,
+		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
 		leftSibling:          nil,
 		rightSiblisng:        nil,
@@ -2708,32 +2709,13 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 	server := ServerStruct{
 		firstPage: zeroPage,
 	}
-
+	cell := creareARowItem(100, 1)
+	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 	var firstPage = PageParsed{
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		btreePageHeaderSize:  8,
 		pageNumber:           1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{},
-		startCellContentArea: PageSize,
-		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
-	}
-
-	cell := creareARowItem(100, 1)
-	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
-
-	// 208 = 208 -12 = 196 /8 = 23  pointers, on every page 24 pointers
-	// data 200 = 200 -8 = 192/100 = 1, per page, hmm
-	var secondPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           1,
-		numberofCells:        1,
 		btreeType:            int(TableBtreeLeafCell),
 		cellAreaParsed:       cellParsed,
 		startCellContentArea: PageSize - cell.dataLength,
@@ -2749,46 +2731,27 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 
 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-	// [0 0 0 27 0 39] [0 0 0 14 0 24] for 40
-	// [0 0 0 27 0 48] [0 0 0 14 0 24] for 49
-	// [0 0 0 52 0 49] [0 0 0 27 0 36] [0 0 0 14 0 23] for 50
-	// 49 total for A-24, B-13 C-13
-	//[0 0 0 52 0 50] [0 0 0 27 0 36] [0 0 0 14 0 23] for 51, there is no full factor, because we always need to have at least 50% in the right, so we are taking from the left
-	// size 10
-	// A-11
-	// A -6 B-11
-	// A-10 B-7
-	// A-10 B-10
-	// A-10 B-11
-	// A-10 B-6 C-5
-	for i := 2; i < 49; i++ {
+
+	for i := 2; i < 119; i++ {
 		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)
 
 	}
-	cmd := exec.Command("clear")
-	cmd.Stdout = os.Stdout
-	cmd.Run()
-
-	for i := 49; i < 120; i++ {
-		fmt.Println("iteration", i)
-		cell1 := creareARowItem(100, i)
-		insert(i, cell1, &server.firstPage, nil)
-
-	}
-
-	t.Error("")
 
 	reader := NewReader("")
 	zeroPageSaved := reader.readFromMemory(0)
-	// twentyFifthPageSaved := reader.readFromMemory(12)
+	thirtyFifthSaved := reader.readFromMemory(35)
 
-	fmt.Println("zero page")
-	fmt.Printf("%+v", zeroPageSaved)
+	expectedZeroPageCellArea := []byte{0, 0, 0, 35, 0, 118}
+	expectedTirthyFifthCellArea := []byte{0, 0, 0, 115, 0, 118, 0, 0, 0, 99, 0, 105, 0, 0, 0, 83, 0, 90, 0, 0, 0, 67, 0, 75, 0, 0, 0, 51, 0, 60, 0, 0, 0, 34, 0, 45, 0, 0, 0, 18, 0, 30, 0, 0, 0, 4, 0, 15}
 
-	fmt.Println("twenty page")
-	// fmt.Printf("%+v", twentyFifthPageSaved)
+	if !reflect.DeepEqual(thirtyFifthSaved.cellArea, expectedTirthyFifthCellArea) {
+		t.Errorf("thirty fitfth area should be: %v, instead we got: %v", expectedTirthyFifthCellArea, thirtyFifthSaved.cellArea)
+	}
+
+	if !reflect.DeepEqual(zeroPageSaved.cellArea, expectedZeroPageCellArea) {
+		t.Errorf("Zero page area should be: %v, instead we got: %v", expectedZeroPageCellArea, zeroPageSaved.cellArea)
+	}
 
 }
