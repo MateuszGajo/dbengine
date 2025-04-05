@@ -55,11 +55,21 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	// Starting point is 2
 	var pointerInSchemaToData int = 2 // db is not initialize, first page for schema, second for data
 	//first read schema, starting from page 1, we will deal with multipage then
-	if len(server.firstPage.latesRow.columns) > 3 {
-		if server.firstPage.latesRow.columns[3].columnType != "1" {
+
+	if len(server.firstPage.latesRow.data) < 3 {
+		panic("should never be less than 3")
+	}
+
+	latestRowheaderLength := server.firstPage.latesRow.data[2]
+	fmt.Println("hello here2??")
+	latestRowHeaders := server.firstPage.latesRow.data[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
+	latestRowValues := server.firstPage.latesRow.data[3-1+int(latestRowheaderLength):]
+	latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
+	if len(latestRowColumns) > 3 {
+		if latestRowColumns[3].columnType != "1" {
 			panic("We are expecting this to be internal index schema")
 		}
-		pointerInSchemaToData = int(server.firstPage.latesRow.columns[3].columnValue[0])
+		pointerInSchemaToData = int(latestRowColumns[3].columnValue[0])
 		pointerInSchemaToData++
 		// TODO: make this work
 		// pointerInSchemaToData = server.dbInfo.pageNumber + 1

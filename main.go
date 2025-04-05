@@ -50,32 +50,6 @@ type DbInfo struct {
 
 var dbName = "db"
 
-type DbHeader struct {
-	headerString               []byte
-	databasePageSize           int
-	databaseFileWriteVersion   []byte
-	databaseFileReadVersion    []byte
-	reservedBytesSpace         []byte
-	maxEmbeddedPayloadFraction []byte
-	minEmbeddedPayloadFraction []byte
-	leafPayloadFraction        []byte
-	fileChangeCounter          int
-	dbSizeInPages              int
-	firstFreeListTrunkPage     []byte
-	totalNumberOfFreeListPages []byte
-	schemaCookie               int
-	schemaFormatNumber         []byte
-	defaultPageCacheSize       []byte
-	largestBTreePage           []byte
-	databaseEncoding           []byte
-	userVersion                []byte
-	incrementalVacuumMode      []byte
-	applicationId              []byte
-	reservedForExpansion       []byte
-	versionValidForNumber      int
-	sqlVersionNumber           []byte
-}
-
 // ````````````````````````````
 // ````````````````````````````
 // ````````````````````````````

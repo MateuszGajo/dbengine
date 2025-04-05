@@ -53,6 +53,32 @@ type Divider struct {
 	rowId int
 }
 
+type DbHeader struct {
+	headerString               []byte
+	databasePageSize           int
+	databaseFileWriteVersion   []byte
+	databaseFileReadVersion    []byte
+	reservedBytesSpace         []byte
+	maxEmbeddedPayloadFraction []byte
+	minEmbeddedPayloadFraction []byte
+	leafPayloadFraction        []byte
+	fileChangeCounter          int
+	dbSizeInPages              int
+	firstFreeListTrunkPage     []byte
+	totalNumberOfFreeListPages []byte
+	schemaCookie               int
+	schemaFormatNumber         []byte
+	defaultPageCacheSize       []byte
+	largestBTreePage           []byte
+	databaseEncoding           []byte
+	userVersion                []byte
+	incrementalVacuumMode      []byte
+	applicationId              []byte
+	reservedForExpansion       []byte
+	versionValidForNumber      int
+	sqlVersionNumber           []byte
+}
+
 type PageParsed struct {
 	dbHeader             DbHeader // only for first page
 	dbHeaderSize         int
@@ -69,10 +95,100 @@ type PageParsed struct {
 	cellAreaSize         int
 	latesRow             *LastPageParseLatestRow
 	isOverflow           bool
-	leftSibling          *int
-	rightSiblisng        *int
 	pageNumber           int
 	isLeaf               bool
+}
+
+func (dbHeader *DbHeader) assignNewPage() int {
+	page := dbHeader.dbSizeInPages
+	dbHeader.dbSizeInPages++
+
+	return page
+}
+
+func CreateNewPage(btreeType BtreeType, parsedCellArea [][]byte, pageNumber int, dbHeader *DbHeader) PageParsed {
+	if btreeType != TableBtreeLeafCell && btreeType != TableBtreeInteriorCell {
+		panic("unsupported tree type")
+	}
+
+	btreePageHeaderSize := 8
+	isLeaf := true
+	if btreeType == TableBtreeInteriorCell {
+		btreePageHeaderSize = 12
+		isLeaf = false
+
+	}
+
+	page := PageParsed{
+		btreeType:           int(btreeType),
+		pageNumber:          pageNumber,
+		btreePageHeaderSize: btreePageHeaderSize,
+		freeBlock:           0,
+		framgenetedArea:     0,
+		isLeaf:              isLeaf,
+		isOverflow:          false,
+	}
+
+	if dbHeader != nil {
+		if pageNumber != 0 {
+			panic("Your assigning header to page diffrent than 0")
+		}
+		page.dbHeader = *dbHeader
+		page.dbHeaderSize = 100
+	}
+
+	page.updateCells(parsedCellArea)
+
+	return page
+
+}
+
+func (page *PageParsed) updateCells(parsedCellArea [][]byte) {
+	cellAreaStart := PageSize
+	pointers := []byte{}
+	cellArea := []byte{}
+	numberOfCells := 0
+	rightMostPointer := []byte{}
+	for _, v := range parsedCellArea {
+		cellAreaStart -= len(v)
+		pointers = append(pointers, intToBinary(cellAreaStart, 2)...)
+		cellArea = append(cellArea, v...)
+		numberOfCells++
+	}
+
+	if page.btreeType == int(TableBtreeInteriorCell) {
+		if len(parsedCellArea) > 0 {
+			if len(parsedCellArea[0]) != 6 {
+				panic("something is wrong, length expected to be 6")
+			}
+			pointerPageNumber := binary.BigEndian.Uint32(parsedCellArea[0][:4])
+			rightMostPointer = append(rightMostPointer, intToBinary(int(pointerPageNumber), 4)...)
+		}
+	}
+
+	page.startCellContentArea = cellAreaStart
+	page.cellArea = cellArea
+	page.cellAreaParsed = parsedCellArea
+	page.numberofCells = numberOfCells
+	page.rightMostpointer = rightMostPointer
+	page.pointers = pointers
+	page.cellAreaSize = len(cellArea)
+
+	if !page.isSpace() {
+		page.isOverflow = true
+	}
+
+	var latestRow *LastPageParseLatestRow
+	if len(parsedCellArea) > 0 {
+		fmt.Println("parse cell are?A")
+		cell := parseCellArea(parsedCellArea[0], BtreeType(page.btreeType))
+		latestRow = &LastPageParseLatestRow{
+			rowId: cell.rowId,
+			data:  parsedCellArea[0],
+		}
+	}
+
+	page.latesRow = latestRow
 }
 
 func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
@@ -255,9 +371,8 @@ type PageParseColumn struct {
 }
 
 type LastPageParseLatestRow struct {
-	rowId   int
-	data    []byte
-	columns []PageParseColumn
+	rowId int
+	data  []byte
 }
 
 func parseDbHeader(data []byte) DbHeader {
@@ -416,9 +531,8 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 			isLeaf:               true,
 			pageNumber:           0,
 			latesRow: &LastPageParseLatestRow{
-				rowId:   0,
-				data:    []byte{},
-				columns: []PageParseColumn{},
+				rowId: 0,
+				data:  []byte{},
 			},
 		}
 	}
@@ -509,8 +623,6 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		cellAreaContent = data[startCellContentAreaBigEndian:]
 	}
 
-	latestRowHeaders := []byte{}
-	latestRowValues := []byte{}
 	var latestRow LastPageParseLatestRow
 
 	cellAreaContentTmp := cellAreaContent
@@ -537,17 +649,10 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		}
 		latestRowRaw := cellAreaContent[:latestRowLength]
 		latestRowId := latestRowRaw[1]
-		fmt.Println("hello here??")
 
-		latestRowheaderLength := latestRowRaw[2]
-		fmt.Println("hello here2??")
-		latestRowHeaders = latestRowRaw[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
-		latestRowValues = latestRowRaw[3-1+int(latestRowheaderLength):]
-		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
 		latestRow = LastPageParseLatestRow{
-			rowId:   int(latestRowId),
-			data:    latestRowRaw,
-			columns: latestRowColumns,
+			rowId: int(latestRowId),
+			data:  latestRowRaw,
 		}
 	}
 

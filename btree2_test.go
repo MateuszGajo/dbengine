@@ -33,8 +33,6 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	server := ServerStruct{
@@ -49,9 +47,8 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var secondPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -61,9 +58,8 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (3 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var thirdPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -73,9 +69,8 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (5 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	writer := NewWriter()
 
@@ -164,8 +159,6 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	server := ServerStruct{
@@ -179,9 +172,8 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var secondPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -191,9 +183,8 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (3 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var thirdPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -203,9 +194,8 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (5 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -247,8 +237,6 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	server := ServerStruct{
@@ -266,8 +254,6 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var seventhPage = PageParsed{
@@ -281,8 +267,6 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	// 1-4, 5-7, 8-12, 16-13
@@ -295,9 +279,8 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var secondPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -307,9 +290,8 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (3 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var thirdPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -319,9 +301,8 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (5 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var fourthPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -331,9 +312,8 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 16, 0, 0, 0, 0}, []byte{4, 15, 0, 0, 0, 0}, []byte{4, 14, 0, 0, 0, 0}, []byte{4, 13, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -467,8 +447,6 @@ func TestUpdateDividerSameAmount(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}, {rowId: 13, pageNumber: 3}}
@@ -522,8 +500,6 @@ func TestUpdateDividerLessAmount(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}}
@@ -577,8 +553,6 @@ func TestUpdateDividerGreaterAmount(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	fmt.Println("zero area cell page?")
@@ -631,8 +605,6 @@ func TestUpdateTestRightMostPointerWhenUpdatePointerWithNewPage(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	fmt.Println("zero area cell page?")
@@ -691,8 +663,6 @@ func TestUpdateDividerWithParentUpdate(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 	clearDbFile("test")
 	firstPagecellAreaParsed := [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}, {0, 0, 0, 2, 0, 8}, {0, 0, 0, 8, 0, 5}}
@@ -710,8 +680,6 @@ func TestUpdateDividerWithParentUpdate(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	fmt.Println("zero area cell page?")
@@ -766,8 +734,6 @@ func TestUpdateDividerWithParentandGrandParentUpdate(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	firstPagecellAreaParsed := [][]byte{{0, 0, 0, 2, 0, 16}}
@@ -787,8 +753,6 @@ func TestUpdateDividerWithParentandGrandParentUpdate(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	secondPagecellAreaParsed := [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}, {0, 0, 0, 9, 0, 8}, {0, 0, 0, 8, 0, 5}}
@@ -806,8 +770,6 @@ func TestUpdateDividerWithParentandGrandParentUpdate(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	fmt.Println("zero area cell page?")
@@ -886,12 +848,11 @@ func TestFindSiblingOnlyRightSiblingsAsLastPointer(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
-	cell := creareARowItem(100, 1)
+	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var firstPage = PageParsed{
@@ -906,9 +867,8 @@ func TestFindSiblingOnlyRightSiblingsAsLastPointer(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	var secondPage = PageParsed{
@@ -920,9 +880,8 @@ func TestFindSiblingOnlyRightSiblingsAsLastPointer(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -958,12 +917,11 @@ func TestFindSiblingOnlyLeftSiblingsAsFirst(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
-	cell := creareARowItem(100, 2)
+	cell := creareARowItem(100, 3)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var firstPage = PageParsed{
@@ -976,9 +934,8 @@ func TestFindSiblingOnlyLeftSiblingsAsFirst(t *testing.T) {
 		startCellContentArea: PageSize,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	var secondPage = PageParsed{
@@ -993,9 +950,8 @@ func TestFindSiblingOnlyLeftSiblingsAsFirst(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -1031,12 +987,11 @@ func TestFindSiblingBothSiblings(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
-	cell := creareARowItem(100, 2)
+	cell := creareARowItem(100, 3)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var firstPage = PageParsed{
@@ -1049,9 +1004,8 @@ func TestFindSiblingBothSiblings(t *testing.T) {
 		startCellContentArea: PageSize,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	var secondPage = PageParsed{
@@ -1066,9 +1020,8 @@ func TestFindSiblingBothSiblings(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	var thirdPage = PageParsed{
@@ -1081,9 +1034,8 @@ func TestFindSiblingBothSiblings(t *testing.T) {
 		startCellContentArea: PageSize,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -1120,12 +1072,11 @@ func TestFindSiblingNoSiblings(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
-	cell := creareARowItem(100, 1)
+	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var firstPage = PageParsed{
@@ -1140,9 +1091,8 @@ func TestFindSiblingNoSiblings(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -1180,9 +1130,8 @@ func TestUpdateData(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	newCell := createCell(TableBtreeLeafCell, 0, "Alice")
@@ -1216,7 +1165,7 @@ func TestUpdateData(t *testing.T) {
 func TestInsertNewData(t *testing.T) {
 	clearDbFile("test")
 
-	cell := creareARowItem(100, 0)
+	cell := creareARowItem(100, 1)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	fmt.Println("current cell")
@@ -1234,8 +1183,6 @@ func TestInsertNewData(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 6,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var firstPage = PageParsed{
@@ -1251,12 +1198,11 @@ func TestInsertNewData(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
-	newCell := createCell(TableBtreeLeafCell, 0, "Alice")
+	newCell := createCell(TableBtreeLeafCell, 1, "Alice")
 
 	firstPage.insertData(newCell, &zeroPage, []*PageParsed{&zeroPage})
 
@@ -1312,8 +1258,6 @@ func TestBalancingSplitRootIntTwoChildren(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 9*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 	// 9*2 content, 2*3 pointer, 8 for headers
 
@@ -1406,8 +1350,6 @@ func TestBalancingSplitRootIntOneChild(t *testing.T) {
 		isLeaf:               true,
 		startCellContentArea: PageSize - 9*4,
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	usableSpacePerPage = 9 * 4
@@ -1486,8 +1428,6 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 		cellAreaSize:         6,
 		numberofCells:        1,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var firstPage = PageParsed{
@@ -1504,8 +1444,6 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 		startCellContentArea: PageSize - 9*4,
 		numberofCells:        len(cellAreaParsed),
 		isOverflow:           true,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 	PageSize = 9*2 + 2*3 + 8
 	// usableSpacePerPage = 9 * 3
@@ -1615,9 +1553,8 @@ func TestBinarySearchInInteriorForNewValueHighestRowId(t *testing.T) {
 		numberofCells:        1,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
 	server := ServerStruct{
@@ -1663,16 +1600,15 @@ func TestBinarySearchInLeafForExisitngValue(t *testing.T) {
 		numberofCells:        3,
 		startCellContentArea: PageSize - 3*cell1.dataLength,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               true,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
 
 	writer.writeToFile(assembleDbPage(secondPage), 0, "", &PageParsed{})
 
-	found, pageNumber, cellAreaParsedIndex := binarySearch(secondPage, 0, 3)
+	found, pageNumber, cellAreaParsedIndex := binarySearch(secondPage, 0, 2)
 
 	if !found {
 		t.Errorf("Expected value to be found, as its already exists")
@@ -1702,8 +1638,6 @@ func TestInsert(t *testing.T) {
 		cellAreaSize:         12,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	server := ServerStruct{
@@ -1722,8 +1656,6 @@ func TestInsert(t *testing.T) {
 		cellAreaSize:         12,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var seventhPage = PageParsed{
@@ -1738,8 +1670,6 @@ func TestInsert(t *testing.T) {
 		cellAreaSize:         12,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var firstPage = PageParsed{
@@ -1750,9 +1680,8 @@ func TestInsert(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var secondPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -1762,9 +1691,8 @@ func TestInsert(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (3 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var thirdPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -1774,9 +1702,8 @@ func TestInsert(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (5 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var fourthPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -1786,9 +1713,8 @@ func TestInsert(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 16, 0, 0, 0, 0}, []byte{4, 15, 0, 0, 0, 0}, []byte{4, 14, 0, 0, 0, 0}, []byte{4, 13, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -1832,8 +1758,6 @@ func TestInsertToExisting(t *testing.T) {
 
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	server := ServerStruct{
@@ -1851,8 +1775,6 @@ func TestInsertToExisting(t *testing.T) {
 
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var seventhPage = PageParsed{
@@ -1866,8 +1788,6 @@ func TestInsertToExisting(t *testing.T) {
 
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 	}
 
 	var firstPage = PageParsed{
@@ -1878,9 +1798,8 @@ func TestInsertToExisting(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var secondPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -1890,9 +1809,8 @@ func TestInsertToExisting(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (3 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var thirdPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -1902,9 +1820,8 @@ func TestInsertToExisting(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (5 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 	var fourthPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -1914,9 +1831,8 @@ func TestInsertToExisting(t *testing.T) {
 		cellAreaParsed:       [][]byte{[]byte{4, 16, 0, 0, 0, 0}, []byte{4, 15, 0, 0, 0, 0}, []byte{4, 14, 0, 0, 0, 0}, []byte{4, 13, 0, 0, 0, 0}},
 		startCellContentArea: PageSize - (4 * 6),
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -2002,9 +1918,8 @@ func TestInsertOneRecord(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
 	server := ServerStruct{
@@ -2020,9 +1935,8 @@ func TestInsertOneRecord(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	var secondPage = PageParsed{
@@ -2034,9 +1948,8 @@ func TestInsertOneRecord(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           true,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -2045,8 +1958,9 @@ func TestInsertOneRecord(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
-	cell := createCell(TableBtreeLeafCell, 2, "aliceAndBob129876theEnd12345")
-	insert(3, cell, &server.firstPage, nil)
+	rowId := 3
+	cell := createCell(TableBtreeLeafCell, rowId, "aliceAndBob129876theEnd12345")
+	insert(rowId, cell, &server.firstPage, nil)
 
 	reader := NewReader("fd")
 
@@ -2088,8 +2002,6 @@ func TestInsertMultipleRecord(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
 		isLeaf:               false,
 	}
 
@@ -2106,9 +2018,7 @@ func TestInsertMultipleRecord(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           true,
-		leftSibling:          nil,
 		isLeaf:               true,
-		rightSiblisng:        nil,
 	}
 
 	var secondPage = PageParsed{
@@ -2120,9 +2030,7 @@ func TestInsertMultipleRecord(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           true,
-		leftSibling:          nil,
 		isLeaf:               true,
-		rightSiblisng:        nil,
 	}
 
 	writer := NewWriter()
@@ -2131,10 +2039,10 @@ func TestInsertMultipleRecord(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
-	cell1 := createCell(TableBtreeLeafCell, 2, "aliceAndBob129876theEnd12345")
+	cell1 := createCell(TableBtreeLeafCell, 3, "aliceAndBob129876theEnd12345")
 	insert(3, cell1, &server.firstPage, nil)
 
-	cell2 := createCell(TableBtreeLeafCell, 3, "aliceAndBob129876theEnd12345")
+	cell2 := createCell(TableBtreeLeafCell, 4, "aliceAndBob129876theEnd12345")
 	insert(4, cell2, &server.firstPage, nil)
 
 	reader := NewReader("fd")
@@ -2193,9 +2101,8 @@ func TestInsertOverflowPage(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
 	server := ServerStruct{
@@ -2211,12 +2118,10 @@ func TestInsertOverflowPage(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           false,
-		leftSibling:          nil,
 		isLeaf:               true,
-		rightSiblisng:        nil,
 	}
 
-	cell := creareARowItem(100, 1)
+	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var secondPage = PageParsed{
@@ -2231,9 +2136,7 @@ func TestInsertOverflowPage(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		cellArea:             cell.data,
 		isOverflow:           false,
-		leftSibling:          nil,
 		isLeaf:               true,
-		rightSiblisng:        nil,
 	}
 
 	writer := NewWriter()
@@ -2242,13 +2145,13 @@ func TestInsertOverflowPage(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
-	cell1 := creareARowItem(100, 2)
+	cell1 := creareARowItem(100, 3)
 	insert(2, cell1, &server.firstPage, nil)
 
-	cell2 := creareARowItem(100, 3)
+	cell2 := creareARowItem(100, 4)
 	insert(3, cell2, &server.firstPage, nil)
 
-	cell3 := creareARowItem(100, 4)
+	cell3 := creareARowItem(100, 5)
 	insert(4, cell3, &server.firstPage, nil)
 
 	reader := NewReader("fd")
@@ -2278,108 +2181,6 @@ func TestInsertOverflowPage(t *testing.T) {
 		t.Errorf("expected cell area to be: %v, got: %v", expectedCellArea, secondPageSaved.cellArea)
 	}
 }
-
-// WE need to write test for distributing now 0x05 pages
-// we forgot updating right pointer
-// func TestInsert111(t *testing.T) {
-// 	clearDbFile("test")
-
-// 	cellArea := []byte{0, 0, 0, 14, 0, 41, 0, 0, 0, 13, 0, 39, 0, 0, 0, 12, 0, 36, 0, 0, 0, 11, 0, 33, 0, 0, 0, 10, 0, 30, 0, 0, 0, 9, 0, 27, 0, 0, 0, 8, 0, 24, 0, 0, 0, 7, 0, 21, 0, 0, 0, 6, 0, 18, 0, 0, 0, 5, 0, 15, 0, 0, 0, 4, 0, 12, 0, 0, 0, 3, 0, 9, 0, 0, 0, 2, 0, 48, 0, 0, 0, 1, 0, 3}
-// 	84 + 100 + 12
-// 	cellAreaParsed := dbReadparseCellArea(byte(TableBtreeInteriorCell), cellArea)
-// 	fmt.Println("cell area length?")
-// 	fmt.Println(len(cellArea))
-// 	fmt.Println("cell area parsed??")
-// 	fmt.Println(cellAreaParsed)
-// 	var zeroPage = PageParsed{
-// 		dbHeader:             header(),
-// 		dbHeaderSize:         100,
-// 		btreePageHeaderSize:  12,
-// 		pageNumber:           0,
-// 		cellAreaParsed:       cellAreaParsed,
-// 		btreeType:            int(TableBtreeInteriorCell),
-// 		rightMostpointer:     []byte{0, 0, 0, 2},
-// 		cellArea:             cellArea,
-// 		cellAreaSize:         12,
-// 		numberofCells:        2,
-// 		startCellContentArea: PageSize - 12,
-// 		isOverflow:           false,
-// 		leftSibling:          nil,
-// 		rightSiblisng:        nil,
-// 		isLeaf:               false,
-// 	}
-
-// 	server := ServerStruct{
-// 		firstPage: zeroPage,
-// 	}
-
-// 	var firstPage = PageParsed{
-// 		dbHeader:             DbHeader{},
-// 		dbHeaderSize:         0,
-// 		btreePageHeaderSize:  8,
-// 		pageNumber:           1,
-// 		btreeType:            int(TableBtreeLeafCell),
-// 		cellAreaParsed:       [][]byte{},
-// 		startCellContentArea: PageSize,
-// 		isOverflow:           false,
-// 		leftSibling:          nil,
-// 		isLeaf:               true,
-// 		rightSiblisng:        nil,
-// 	}
-
-// 	cell := creareARowItem(100, 1)
-// 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
-
-// 	var secondPage = PageParsed{
-// 		dbHeader:             DbHeader{},
-// 		dbHeaderSize:         0,
-// 		btreePageHeaderSize:  8,
-// 		pageNumber:           1,
-// 		numberofCells:        1,
-// 		btreeType:            int(TableBtreeLeafCell),
-// 		cellAreaParsed:       cellParsed,
-// 		startCellContentArea: PageSize - cell.dataLength,
-// 		cellAreaSize:         cell.dataLength,
-// 		cellArea:             cell.data,
-// 		isOverflow:           false,
-// 		leftSibling:          nil,
-// 		isLeaf:               true,
-// 		rightSiblisng:        nil,
-// 	}
-
-// 	writer := NewWriter()
-
-// 	usableSpacePerPage = 300
-
-// 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-// 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-// 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-
-// 	// for i := 2; i < 49; i++ {
-// 	// 	fmt.Println("iteration", i)
-// 	// 	cell1 := creareARowItem(100, i)
-// 	// 	insert(i, cell1, &server.firstPage)
-
-// 	// }
-// 	// reader := NewReader("")
-// 	// zeroPageSaved := reader.readFromMemory(0)
-// 	// firstPageSaved := reader.readFromMemory(1)
-// 	// secondPageSaved := reader.readFromMemory(2)
-// 	// fifteenPageSaved := reader.readFromMemory(14)
-// 	// // sixteenPageSaved := reader.readFromMemory(16)
-// 	// fmt.Println("zero page")
-// 	// fmt.Println(zeroPageSaved.cellAreaParsed)
-// 	// fmt.Println("first page")
-// 	// fmt.Println(firstPageSaved.cellAreaParsed)
-// 	// fmt.Println("secpmd page")
-// 	// fmt.Println(secondPageSaved.cellAreaParsed)
-// 	// fmt.Println("fiften page")
-// 	// fmt.Println(fifteenPageSaved.cellAreaParsed)
-// 	// fmt.Println("sixteen page")
-// 	// // fmt.Println(sixteenPageSaved.cellAreaParsed)
-
-//		// fmt.Println("end :)")
-//	}
 
 func TestLeafBias(t *testing.T) {
 	usableSpacePerPage = 20
@@ -2419,9 +2220,8 @@ func TestInsertWithInteriorNested(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
 	server := ServerStruct{
@@ -2437,12 +2237,11 @@ func TestInsertWithInteriorNested(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
-	cell := creareARowItem(100, 1)
+	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var secondPage = PageParsed{
@@ -2457,9 +2256,8 @@ func TestInsertWithInteriorNested(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		cellArea:             cell.data,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -2468,7 +2266,7 @@ func TestInsertWithInteriorNested(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
-	for i := 2; i < 73; i++ {
+	for i := 3; i < 74; i++ {
 		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)
@@ -2545,9 +2343,8 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 		numberofCells:        2,
 		startCellContentArea: PageSize - 12,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
 	server := ServerStruct{
@@ -2563,12 +2360,11 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
-	cell := creareARowItem(100, 1)
+	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 
 	var secondPage = PageParsed{
@@ -2583,9 +2379,8 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		cellArea:             cell.data,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -2594,7 +2389,7 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
-	for i := 2; i < 74; i++ {
+	for i := 3; i < 75; i++ {
 		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)
@@ -2683,8 +2478,6 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	}
 }
 
-//todo finish this
-
 func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 	clearDbFile("test")
 	PageSize = 134
@@ -2701,15 +2494,14 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 		numberofCells:        1,
 		startCellContentArea: PageSize - 6,
 		isOverflow:           false,
-		leftSibling:          nil,
-		rightSiblisng:        nil,
-		isLeaf:               false,
+
+		isLeaf: false,
 	}
 
 	server := ServerStruct{
 		firstPage: zeroPage,
 	}
-	cell := creareARowItem(100, 1)
+	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
 	var firstPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -2722,9 +2514,8 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 		cellAreaSize:         cell.dataLength,
 		cellArea:             cell.data,
 		isOverflow:           false,
-		leftSibling:          nil,
-		isLeaf:               true,
-		rightSiblisng:        nil,
+
+		isLeaf: true,
 	}
 
 	writer := NewWriter()
@@ -2732,7 +2523,7 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 
-	for i := 2; i < 119; i++ {
+	for i := 3; i < 120; i++ {
 		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)

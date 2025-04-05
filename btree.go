@@ -990,9 +990,7 @@ func createCell(btreeType BtreeType, rowId int, values ...interface{}) CreateCel
 	if btreeType == TableBtreeLeafCell {
 		var columnValues []byte = []byte{}
 		var columnLength []byte = []byte{}
-		var schemaRowId = rowId
-
-		schemaRowId++
+		// rowId++
 
 		for _, v := range values {
 			switch v.(type) {
@@ -1018,7 +1016,6 @@ func createCell(btreeType BtreeType, rowId int, values ...interface{}) CreateCel
 		}
 
 		headerLength := len(columnLength) + 1 // 5 column + 1 for current byte
-		rowId := schemaRowId                  // first row 2 byes
 
 		row := []byte{byte(rowId)}
 		row = append(row, byte(headerLength))
