@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 )
-
 
 func TestSingleSchemaWithSingleValue(t *testing.T) {
 	clearDbFile("test")

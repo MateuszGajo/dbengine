@@ -27,21 +27,14 @@ var softWritePages map[int]PageParsed = make(map[int]PageParsed)
 var tree bool = false
 
 func (writer WriterStruct) softwiteToFile(data *PageParsed, page int, firstPage *PageParsed) {
-	fmt.Println("soft write writer", page)
-
-	fmt.Println("content area len", len(data.cellAreaParsed))
 	firstPage.dbHeader.fileChangeCounter++
 	firstPage.dbHeader.versionValidForNumber++
 	if page == firstPage.dbHeader.dbSizeInPages {
 		firstPage.dbHeader.dbSizeInPages++
 	} else if page > firstPage.dbHeader.dbSizeInPages {
-		fmt.Println(page)
-		fmt.Println("is greater than number of paghes")
-		fmt.Println(firstPage.dbHeader.dbSizeInPages)
 		panic("don't leave empty space")
 	}
 	if !data.isSpace() {
-		fmt.Println("st overflow to true??")
 		data.isOverflow = true
 	} else {
 		data.isOverflow = false
@@ -63,21 +56,14 @@ func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
 }
 
 func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage *PageParsed) {
-	if page == 0 {
-		fmt.Println("-------------------")
-		fmt.Println("-------------------")
-		fmt.Println("---write to file 0---")
-		fmt.Println("-------------------")
-	}
+
 	_, exists := softWritePages[page]
 
 	if exists {
 		delete(softWritePages, page)
 	}
 
-	fmt.Println(page)
 	writer.WriteToFileWithRetry(data, page, conId)
-	fmt.Println("hmm??")
 	if page == 0 {
 		return
 	}

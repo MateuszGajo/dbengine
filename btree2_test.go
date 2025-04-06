@@ -326,11 +326,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 	writer.writeToFile(assembleDbPage(PageParsed{}), 5, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(sixthPage), 6, "", &server.firstPage)
 	writer.writeToFile(assembleDbPage(seventhPage), 7, "", &server.firstPage)
-	found, index, pageFound, parents := search(0, 7, []*PageParsed{})
-
-	fmt.Println("lets see what we found")
-	fmt.Println(found)
-	fmt.Println(index)
+	found, _, pageFound, parents := search(0, 7, []*PageParsed{})
 
 	if !found {
 		t.Errorf("expected to find rowid 7")
@@ -555,9 +551,6 @@ func TestUpdateDividerGreaterAmount(t *testing.T) {
 		isOverflow:           true,
 	}
 
-	fmt.Println("zero area cell page?")
-	fmt.Println(zeroPage.cellArea)
-
 	cells := []Cell{{rowId: 9, pageNumber: 2}, {rowId: 13, pageNumber: 3}, {rowId: 14, pageNumber: 5}}
 
 	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
@@ -606,9 +599,6 @@ func TestUpdateTestRightMostPointerWhenUpdatePointerWithNewPage(t *testing.T) {
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
 	}
-
-	fmt.Println("zero area cell page?")
-	fmt.Println(zeroPage.cellArea)
 
 	cells := []Cell{{rowId: 18, pageNumber: 5}}
 
@@ -681,9 +671,6 @@ func TestUpdateDividerWithParentUpdate(t *testing.T) {
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
 	}
-
-	fmt.Println("zero area cell page?")
-	fmt.Println(zeroPage.cellArea)
 
 	cells := []Cell{{rowId: 18, pageNumber: 5}}
 
@@ -771,9 +758,6 @@ func TestUpdateDividerWithParentandGrandParentUpdate(t *testing.T) {
 		startCellContentArea: PageSize - 6*4,
 		isOverflow:           true,
 	}
-
-	fmt.Println("zero area cell page?")
-	fmt.Println(zeroPage.cellArea)
 
 	cells := []Cell{{rowId: 18, pageNumber: 5}}
 
@@ -895,7 +879,6 @@ func TestFindSiblingOnlyRightSiblingsAsLastPointer(t *testing.T) {
 	if leftSibling != nil {
 		t.Errorf("Expected left sibling to be nil, got: %v", leftSibling)
 	}
-	fmt.Println(rightSibling)
 
 	if rightSibling == nil || rightSibling.pageNumber != 2 {
 		t.Errorf("expected right sibling to be page number 2")
@@ -965,7 +948,6 @@ func TestFindSiblingOnlyLeftSiblingsAsFirst(t *testing.T) {
 	if rightSibling != nil {
 		t.Errorf("Expected left sibling to be nil, got: %v", rightSibling)
 	}
-	fmt.Println(rightSibling)
 
 	if leftSibling == nil || leftSibling.pageNumber != 1 {
 		t.Errorf("expected right sibling to be page number 1")
@@ -1050,7 +1032,6 @@ func TestFindSiblingBothSiblings(t *testing.T) {
 	if rightSibling == nil || rightSibling.pageNumber != 3 {
 		t.Errorf("Expected right siblings to be page number 3")
 	}
-	fmt.Println(rightSibling)
 
 	if leftSibling == nil || leftSibling.pageNumber != 1 {
 		t.Errorf("expected right sibling to be page number 1")
@@ -1135,7 +1116,7 @@ func TestUpdateData(t *testing.T) {
 	}
 
 	newCell := createCell(TableBtreeLeafCell, 0, "Alice")
-	firstPage.updateData(newCell, 0)
+	firstPage.updateParsedCells(newCell, 0)
 
 	if !reflect.DeepEqual(firstPage.cellAreaParsed[0], newCell.data) {
 		t.Errorf("Expected cell area parsed to be: %v, instead we got: %v", newCell.data, firstPage.cellAreaParsed[0])
@@ -1167,9 +1148,6 @@ func TestInsertNewData(t *testing.T) {
 
 	cell := creareARowItem(100, 1)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
-
-	fmt.Println("current cell")
-	fmt.Println(cell.rowId)
 
 	var zeroPage = PageParsed{
 		dbHeader:             header(),
@@ -1227,7 +1205,7 @@ func TestInsertNewData(t *testing.T) {
 		t.Errorf("Expected cell area to be: %v, got: %v", expectedCellArea, firstPage.cellArea)
 	}
 
-	expectedPointer := append([]byte{}, intToBinary(PageSize-cell.dataLength, 2)...)
+	expectedPointer := append([]byte{}, intToBinary(PageSize-newCell.dataLength, 2)...)
 	expectedPointer = append(expectedPointer, intToBinary(PageSize-cell.dataLength-newCell.dataLength, 2)...)
 
 	if !reflect.DeepEqual(firstPage.pointers, expectedPointer) {
@@ -1367,9 +1345,6 @@ func TestBalancingSplitRootIntOneChild(t *testing.T) {
 	zeroPageSaved := reader.readFromMemory(0)
 	firstPageSaved := reader.readFromMemory(1)
 
-	fmt.Println("number of pages??")
-	fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
-
 	if server.firstPage.dbHeader.dbSizeInPages != 2 {
 		t.Errorf("Expected number of pages to be 2, got: %v", server.firstPage.dbHeader.dbSizeInPages)
 	}
@@ -1468,18 +1443,12 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 	firstPageSaved := reader.readFromMemory(2)
 	secondPageSaved := reader.readFromMemory(3)
 
-	fmt.Println("number of pages??")
-	fmt.Println(server.firstPage.dbHeader.dbSizeInPages)
-
 	if server.firstPage.dbHeader.dbSizeInPages != 4 {
 		t.Errorf("Expected number of pages to be 4, got: %v", server.firstPage.dbHeader.dbSizeInPages)
 	}
 
 	zeroPageExpectedCellArea := []byte{0, 0, 0, 3, 0, 4, 0, 0, 0, 2, 0, 2}
 	zeroPageExpectedCellAreaParsed := dbReadparseCellArea(byte(TableBtreeInteriorCell), zeroPageExpectedCellArea)
-
-	fmt.Println("zer opage cell area parsed???")
-	fmt.Println(zeroPageExpectedCellAreaParsed)
 
 	if len(zeroPageSaved.cellAreaParsed) != 2 {
 		t.Errorf("expected cell area to have only 2 element, insted we got: %v", len(zeroPageSaved.cellAreaParsed))
@@ -1861,41 +1830,6 @@ func TestInsertToExisting(t *testing.T) {
 		t.Errorf("expected cell area start with newly added cell: %v, instead we got: %v", cell.data, node.cellAreaParsed[0])
 	}
 
-	reader := NewReader("fd")
-
-	firstPageRead := reader.readDbPage(0)
-	firstPageParsed := parseReadPage(firstPageRead, 0)
-	secondPageRead := reader.readDbPage(1)
-	secondPageParsed := parseReadPage(secondPageRead, 1)
-	thirdPageRead := reader.readDbPage(2)
-	thirdPageParsed := parseReadPage(thirdPageRead, 2)
-	// fourthPageRead := reader.readDbPage(3)
-	// fourthPageParsed := parseReadPage(fourthPageRead, 3)
-	// fifthPageRead := reader.readDbPage(4)
-	// fifthPageParsed := parseReadPage(fifthPageRead, 4)
-	// sixthPageRead := reader.readDbPage(5)
-	// sixthPageParsed := parseReadPage(sixthPageRead, 5)
-	// seventhPageRead := reader.readDbPage(6)
-	// seventhPageParsed := parseReadPage(seventhPageRead, 6)
-	// eighthPageRead := reader.readDbPage(7)
-	// eighthPageParsed := parseReadPage(eighthPageRead, 7)
-	fmt.Println("lets see pages")
-	fmt.Printf("%+v \n", firstPageParsed)
-	fmt.Println("```````````````Second page ````````````````````")
-	fmt.Printf("%+v \n", secondPageParsed)
-	fmt.Println("```````````````third page ````````````````````")
-	fmt.Printf("%+v \n", thirdPageParsed)
-	fmt.Println("```````````````fourth page ````````````````````")
-	// fmt.Printf("%+v \n", fourthPageParsed)
-	// fmt.Println("```````````````fifth page ````````````````````")
-	// fmt.Printf("%+v \n", fifthPageParsed)
-	// fmt.Println("```````````````fifth page ````````````````````")
-	// fmt.Printf("%+v \n", sixthPageParsed)
-	// fmt.Println("```````````````seventh page ````````````````````")
-	// fmt.Printf("%+v \n", seventhPageParsed)
-	// fmt.Println("```````````````eight page ````````````````````")
-	// fmt.Printf("%+v \n", eighthPageParsed)
-
 }
 
 //finish this one
@@ -2267,7 +2201,6 @@ func TestInsertWithInteriorNested(t *testing.T) {
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
 	for i := 3; i < 74; i++ {
-		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)
 
@@ -2390,7 +2323,6 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
 
 	for i := 3; i < 75; i++ {
-		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)
 
@@ -2524,7 +2456,6 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
 
 	for i := 3; i < 120; i++ {
-		fmt.Println("iteration", i)
 		cell1 := creareARowItem(100, i)
 		insert(i, cell1, &server.firstPage, nil)
 

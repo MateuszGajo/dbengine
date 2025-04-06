@@ -62,7 +62,6 @@ var dbName = "db"
 // 2. Write more e2e test
 
 func exectueCommand(input string) {
-	fmt.Println("run generic parser")
 	_, parsedQuery := genericParser(input)
 
 	conId := pseudo_uuid()
@@ -118,8 +117,7 @@ func main() {
 	exectueCommand(input)
 
 	for i := 0; i < 38; i++ {
-		fmt.Println("iteration??", i)
-		input = "INSERT INTO user (name) values('Aliceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')"
+		input = "INSERT INTO user (name) values('Alice')"
 		//10 bytes
 		exectueCommand(input)
 	}

@@ -56,24 +56,19 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	var pointerInSchemaToData int = 2 // db is not initialize, first page for schema, second for data
 	//first read schema, starting from page 1, we will deal with multipage then
 
-	if len(server.firstPage.latesRow.data) < 3 {
-		panic("should never be less than 3")
-	}
-
-	latestRowheaderLength := server.firstPage.latesRow.data[2]
-	fmt.Println("hello here2??")
-	latestRowHeaders := server.firstPage.latesRow.data[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
-	latestRowValues := server.firstPage.latesRow.data[3-1+int(latestRowheaderLength):]
-	latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
-	if len(latestRowColumns) > 3 {
-		if latestRowColumns[3].columnType != "1" {
-			panic("We are expecting this to be internal index schema")
+	if len(server.firstPage.latesRow.data) > 3 {
+		latestRowheaderLength := server.firstPage.latesRow.data[2]
+		latestRowHeaders := server.firstPage.latesRow.data[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
+		latestRowValues := server.firstPage.latesRow.data[3-1+int(latestRowheaderLength):]
+		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
+		if len(latestRowColumns) > 3 {
+			if latestRowColumns[3].columnType != "1" {
+				panic("We are expecting this to be internal index schema")
+			}
+			pointerInSchemaToData = int(latestRowColumns[3].columnValue[0])
 		}
-		pointerInSchemaToData = int(latestRowColumns[3].columnValue[0])
-		pointerInSchemaToData++
-		// TODO: make this work
-		// pointerInSchemaToData = server.dbInfo.pageNumber + 1
 	}
+	fmt.Println("pointer to schema??", pointerInSchemaToData)
 
 	rowId := 0
 	if server.firstPage.latesRow != nil {
@@ -99,7 +94,6 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	initRowId := 0
 
 	server.sequence[createSqlQueryData.entityName] = initRowId
-	fmt.Println("add sequence key, name", createSqlQueryData.entityName)
 
 	writer := NewWriter()
 
@@ -116,7 +110,7 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 
 	emptyDataPage := btreeHeaderForData
 	emptyDataPage = append(emptyDataPage, zerosSpace...)
-
+	fmt.Println("writer in create table sql query???")
 	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, &server.firstPage)
 
 }
@@ -138,8 +132,6 @@ func (server ServerStruct) handleCreaqteSqlQuery(parsedQuery []ParsedValue, inpu
 
 	return nil
 }
-
-// insert into user(name) values('Alice')
 
 func findTableNameInSchemaPage(page PageParsed, value string) []PageParseColumn {
 	// ``````````````````````````````````
@@ -278,14 +270,10 @@ func (server ServerStruct) handleInsertSqlQuery(parsedQuery []ParsedValue, input
 	}
 	dataToWrite, err := getColumnData(createSqlQueryData.columns, currentQueryColumns, currentQueryValues)
 
-	fmt.Println("data to write")
-	fmt.Println(dataToWrite...)
-
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("get sequence key, name", parsedQuery[2].data)
 	rowId, ok := server.sequence[parsedQuery[2].data]
 
 	if !ok {

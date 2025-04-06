@@ -180,7 +180,6 @@ func (page *PageParsed) updateCells(parsedCellArea [][]byte) {
 
 	var latestRow *LastPageParseLatestRow
 	if len(parsedCellArea) > 0 {
-		fmt.Println("parse cell are?A")
 		cell := parseCellArea(parsedCellArea[0], BtreeType(page.btreeType))
 		latestRow = &LastPageParseLatestRow{
 			rowId: cell.rowId,
@@ -194,27 +193,17 @@ func (page *PageParsed) updateCells(parsedCellArea [][]byte) {
 func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 
 	if parentPage.pageNumber == 0 && parentPage.numberofCells == 0 {
-		fmt.Println("zero condition???!!!")
-		fmt.Println(parentPage.cellArea)
-		fmt.Println(parentPage.pageNumber)
-		fmt.Println(parentPage.numberofCells)
-		fmt.Println("zero condition???!!!")
-		fmt.Println("zero condition???!!!")
 		return Divider{}, 0, 0
 	}
 
-	// page := getNode(pageNumber)
-
 	cellAreaTmp := parentPage.cellArea
-	// cellAreaTmp = append(cellAreaTmp, []byte{0, 0}...)
-	// cellAreaTmp = append(cellAreaTmp, parentPage.cellArea...)
 
 	if parentPage.btreeType != int(TableBtreeInteriorCell) {
 		fmt.Println("page number", pageNumber)
 		panic("onyl divider for interior cell tree, get divider")
 	}
 	i := 0
-	fmt.Println("get divider for page number??", pageNumber)
+
 	for i < len(cellAreaTmp) {
 		pointer := parentPage.cellArea[i : i+6]
 		pointerPageNumber := binary.BigEndian.Uint32(pointer[:4])
@@ -224,7 +213,6 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 			return Divider{
 				page:  pageNumber,
 				rowId: int(rowId),
-				// rowid: int(binary.BigEndian.Uint16(pointer[4:])),
 			}, i, i + 6
 		}
 
@@ -236,8 +224,6 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 
 // i think we only need to update the higest rowId as we references this
 func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, pageNumber int, firstPage *PageParsed) {
-	fmt.Println("hello update divider???", page.pageNumber)
-	fmt.Println("looking for page?", pageNumber)
 	for i, v := range page.cellAreaParsed {
 		pageNumberCell := binary.BigEndian.Uint32(v[:4])
 		rowId := binary.BigEndian.Uint16(v[4:6])
@@ -292,10 +278,6 @@ func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, 
 
 func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed, parents []*PageParsed) {
 
-	fmt.Println("what divider are we adding?")
-	fmt.Println(cells)
-	fmt.Println("at position", startIndex, endIndex)
-
 	if page.btreeType != int(TableBtreeInteriorCell) {
 		panic("onyl divider for interior cell tree, update divider")
 	}
@@ -327,14 +309,10 @@ func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, fir
 		lastPointer -= len(v)
 		pointers = append(pointers, intToBinary(lastPointer, 2)...)
 	}
-	fmt.Println("cell area parsed??", cellAreaParsed)
-	fmt.Println("right most page??", cellAreaParsed[0][:4])
+
 	page.rightMostpointer = cellAreaParsed[0][:4]
 	page.cellAreaParsed = cellAreaParsed
 	page.pointers = pointers
-
-	fmt.Println(page.cellArea)
-	fmt.Println(page.cellAreaParsed)
 
 	page.numberofCells = len(cellAreaParsed)
 	page.startCellContentArea = PageSize - len(contentAreaFirst)
@@ -514,7 +492,6 @@ func dbReadparseCellArea(btreeType byte, cellAreaContentTmp []byte) [][]byte {
 
 func parseReadPage(data []byte, dbPage int) PageParsed {
 	if dbPage == 0 && len(data) == 0 {
-		fmt.Println("here??")
 		return PageParsed{
 			dbHeader:             header(),
 			dbHeaderSize:         100,
@@ -592,7 +569,6 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	fragmenetedArea := dataToParse[7]
 	var rightMostPointer []byte = []byte{}
 	if isPointerValue {
-		fmt.Println("is right pointer")
 		rightMostPointer = dataToParse[8:12]
 		dataToParse = dataToParse[12:]
 	} else {
@@ -613,7 +589,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		dataToParse = dataToParse[2:]
 		pointers = append(pointers, pointer...)
 	}
-	fmt.Println("after pointerS???")
+
 	if len(data) < int(startCellContentAreaBigEndian) {
 		panic("data length is lesser than start of cell content area")
 	}
@@ -629,6 +605,14 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 	cellAreaParsed := [][]byte{}
 
 	cellAreaParsed = dbReadparseCellArea(btreeType, cellAreaContentTmp)
+
+	if len(cellAreaParsed) > 0 {
+		cell := parseCellArea(cellAreaParsed[0], BtreeType(btreeType))
+		latestRow = LastPageParseLatestRow{
+			rowId: cell.rowId,
+			data:  cell.data,
+		}
+	}
 
 	if len(cellAreaContent) > 0 && btreeType == 0x13 {
 		latestRowLength := int(cellAreaContent[0]) + 2
@@ -654,6 +638,8 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 			rowId: int(latestRowId),
 			data:  latestRowRaw,
 		}
+		fmt.Println("hello???")
+		fmt.Println(latestRow)
 	}
 
 	return PageParsed{

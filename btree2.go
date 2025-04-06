@@ -104,12 +104,6 @@ var usableSpacePerPage = PageSize - 12 //
 // 	return siblings, divider
 // }
 
-var loopIteration = 0
-
-// we have working hardcoded implementation
-// No we need to implement real pages that are read from disk
-// look at the parsed cell area, maybe we can remove it or make it stick
-
 func (parentPage PageParsed) findSiblings(currentNode PageParsed) (*PageParsed, *PageParsed) {
 
 	if len(parentPage.cellAreaParsed) == 0 && parentPage.pageNumber == 0 {
@@ -121,19 +115,11 @@ func (parentPage PageParsed) findSiblings(currentNode PageParsed) (*PageParsed, 
 	currnetPageLatestRow := parseCellArea(currentNode.cellAreaParsed[0], BtreeType(currentNode.btreeType))
 	rowIdAsEntry := currnetPageLatestRow.rowId
 	pageNumber := currentNode.pageNumber
-	fmt.Println("row as entry??")
-	fmt.Println(rowIdAsEntry)
-	fmt.Println("page number?")
-	fmt.Println(currentNode.pageNumber)
-	fmt.Println("cell area?")
-	fmt.Println(parentPage.cellArea)
+
 	if len(parentPage.cellAreaParsed) == 0 {
-		fmt.Println("parent page??")
-		fmt.Println(parentPage.pageNumber)
-		fmt.Println(parentPage.cellArea)
-		// return nil, nil
 		panic("should never occur, cell area parsed empty, find siblings 2")
 	}
+
 	reader := NewReader("")
 	cellParsed := parseCellArea(parentPage.cellAreaParsed[0], BtreeType(parentPage.btreeType))
 
@@ -143,15 +129,10 @@ func (parentPage PageParsed) findSiblings(currentNode PageParsed) (*PageParsed, 
 	var rightPageNumber int
 
 	if rowIdAsEntry > rightRowId {
-		fmt.Println("parent???")
-		fmt.Println(parentPage.cellAreaParsed)
-		fmt.Println("data")
-		fmt.Println(rowIdAsEntry)
-		fmt.Println(rightRowId)
+
 		panic("should never happend, rowIdASEntry > rightRowId in find sibling")
 	}
-	// [0 0 0 2 0 2
-	//  0 0 0 1 0 1]
+
 	for i := 0; i < len(parentPage.cellAreaParsed); i++ {
 		if i < len(parentPage.cellAreaParsed)-1 {
 			cellParsed := parseCellArea(parentPage.cellAreaParsed[i+1], BtreeType(parentPage.btreeType))
@@ -159,7 +140,6 @@ func (parentPage PageParsed) findSiblings(currentNode PageParsed) (*PageParsed, 
 		}
 		if i > 0 {
 			cellParsed := parseCellArea(parentPage.cellAreaParsed[i-1], BtreeType(parentPage.btreeType))
-			rightRowId = cellParsed.rowId
 			rightPageNumber = cellParsed.pageNumber
 		}
 
@@ -191,34 +171,11 @@ func (parentPage PageParsed) findSiblings(currentNode PageParsed) (*PageParsed, 
 	panic("should never enter here")
 }
 
-// how to update parent references??
-// right most pointer:
-// cell area
-
-// rowids: 0-3, 4-6, 8-9
-// parent: page 1, 0,0,0,1,0,3, 0,0,0,2,0,6, 0,0,0,3,0,9, 0,0,0,4,0, 12, 0,0,0,0,5,15, 0,0,0,0,6,0,18 0,0,0,7,0,22
-// right most pointer 0,0,0,8
-
-// we wanna take siblings of page 7, so its 6, and 8
-// alright but now how to update pointer??
-// what can happen, we can delete page, add new one
-// lets say we added new page 0,0,0,9
-// how now update parent?
-// we have cells with pages:7,8,9
-// i think we can use rowid, so all we need is start index
-// or maybe lets hack it and add right page to content
-
-//lets code it diffrently, if it need to take right most pointer, we need to load page and then take pointers
-
 func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PageParsed) {
 
 	siblings := []PageParsed{}
 
-	// how to parse siblings???
-
 	isRoot := len(parents) == 0
-
-	fmt.Println("is overflow??", node.isOverflow)
 
 	if !node.isOverflow {
 		return
@@ -230,8 +187,6 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 
 	if isRoot && node.isOverflow {
 
-		// insert a new page and move that taken from root and run balancing algoritm
-		// root := getRootData()
 		cellArea := []byte{}
 		cell := parseCellArea(node.cellAreaParsed[0], BtreeType(node.btreeType))
 		cellArea = append(cellArea, intToBinary(firstPage.dbHeader.dbSizeInPages, 4)...)
@@ -310,7 +265,7 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 	for len(numberOfCellPerPage) < len(siblings) {
 		siblings = siblings[:len(siblings)-1]
 	}
-	deivider, pages := redistribution(totalSizeInEachPage, numberOfCellPerPage, cellToDistribute, siblings, node)
+	deivider, pages := redistribution(numberOfCellPerPage, cellToDistribute, siblings)
 
 	for i, v := range pages {
 		rowData := []byte{}
@@ -328,8 +283,6 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 
 	modifyDivider(&parent, deivider, startIndex, endIndex, firstPage, parents)
 
-	// newPage := reader.readFromMemory(parent)
-
 	balancingForNode(parent, parents, firstPage)
 
 }
@@ -346,24 +299,15 @@ func leaf_bias(cells []Cell) ([]int, []int) {
 			totalSizeInEachPage[i] += v.size
 			numberOfCellPerPage[i]++
 		} else {
-
 			totalSizeInEachPage = append(totalSizeInEachPage, v.size)
 			numberOfCellPerPage = append(numberOfCellPerPage, 1)
 		}
-
 	}
 
 	return totalSizeInEachPage, numberOfCellPerPage
 }
 
-// account for underflow towards the right
-
 func accountForUnderflowToardsRight(totalSizeInEachPage, numberOfCellPerPage []int, cellToDistribute []Cell, node PageParsed) ([]int, []int) {
-
-	// PAGE 1 [1,2,3], PageTwo [4]
-	//4 -1 = 3 -1 =2\
-	fmt.Println("usable space??", usableSpacePerPage/2)
-	// 7 - 3 -1 =3
 	divCell := len(cellToDistribute) - numberOfCellPerPage[len(numberOfCellPerPage)-1] - 1
 
 	if len(numberOfCellPerPage) >= 2 {
@@ -400,7 +344,7 @@ func accountForUnderflowToardsRight(totalSizeInEachPage, numberOfCellPerPage []i
 // leaf this redistrubtion
 // work on saving
 
-func redistribution(totalSizeInEachPage, numberOfCellPerPage []int, cellToDistribute []Cell, siblingsLength []PageParsed, node PageParsed) ([]Cell, [][]Cell) {
+func redistribution(numberOfCellPerPage []int, cellToDistribute []Cell, siblingsLength []PageParsed) ([]Cell, [][]Cell) {
 	dividers := []Cell{}
 	pages := make([][]Cell, len(numberOfCellPerPage))
 	pageIndex := -1
@@ -490,7 +434,6 @@ func (page *PageParsed) isSpace() bool {
 	return (page.cellAreaSize + page.btreePageHeaderSize + page.dbHeaderSize + len(page.pointers)) < PageSize
 }
 
-// lets see this one
 func (page *PageParsed) insertData(data CreateCell, firstPage *PageParsed, parents []*PageParsed) {
 
 	if len(parents) > 0 {
@@ -505,105 +448,43 @@ func (page *PageParsed) insertData(data CreateCell, firstPage *PageParsed, paren
 				pageNumber: page.pageNumber,
 				rowId:      data.rowId,
 			}
-			fmt.Println("modify divider in insert datta???")
 
 			modifyDivider(parent, []Cell{cell}, startIndex, endIndex, firstPage, parents)
 		} else {
-			panic("in incremental write, should never happen")
+			panic("should never happen, insert data")
 		}
 	}
 
-	fmt.Println("pointer 3")
 	cellParsedData := [][]byte{data.data}
 	cellParsedData = append(cellParsedData, page.cellAreaParsed...)
 
-	cellArea := data.data
-	cellArea = append(cellArea, page.cellArea...)
-	page.cellArea = cellArea
-	page.cellAreaParsed = cellParsedData
+	page.updateCells(cellParsedData)
 
-	page.cellAreaSize += data.dataLength
-
-	if !page.isSpace() {
-		fmt.Println("set overflow to true1~!!!")
-		page.isOverflow = true
-	}
-
-	page.numberofCells++
-
-	page.startCellContentArea -= data.dataLength
-
-	newPointers := page.pointers
-	newPointers = append(newPointers, intToBinary(page.startCellContentArea, 2)...)
-
-	page.pointers = newPointers
 }
 
-func (page *PageParsed) updateData(data CreateCell, index int) {
-	dataDifferences := data.dataLength - len(page.cellAreaParsed[index])
-
+func (page *PageParsed) updateParsedCells(data CreateCell, index int) {
 	page.cellAreaParsed[index] = data.data
 
-	cellArea := []byte{}
-
-	for _, v := range page.cellAreaParsed {
-		cellArea = append(cellArea, v...)
-	}
-
-	page.cellAreaSize += dataDifferences
-	page.cellArea = cellArea
-
-	newPointers := []byte{}
-	start := PageSize
-
-	for _, v := range page.cellAreaParsed {
-		start -= len(v)
-		newPointers = append(newPointers, intToBinary(start, 2)...)
-	}
-
-	if !page.isSpace() {
-		fmt.Println("set overflow to true2~!!!")
-		page.isOverflow = true
-	}
-
-	page.startCellContentArea = PageSize - page.cellAreaSize
-
-	page.pointers = newPointers
+	page.updateCells(page.cellAreaParsed)
 }
 
-// two type of inserts
-// assuming page number 2, and current row id 20 insert at the end, so if paret has 0,0,0,2,0,20, should be update to 0,0,0,0,1,0,10 0,0,0,2,0,21
-// insert where the row been deleted so if paret has 0,0,0,0,1,0,10 0,0,0,2,0,20 it should stay0,0,0,0,1,0,10 0,0,0,2,0,20
-
 func insert(rowId int, cell CreateCell, firstPage *PageParsed, startPageNumber *int) PageParsed {
-	if startPageNumber != nil {
-		fmt.Printf("insert, start page number?? :%d \n", *startPageNumber)
-		fmt.Printf("insert, start page number?? :%d \n", *startPageNumber)
-		fmt.Printf("insert, start page number?? :%d \n", *startPageNumber)
-	}
 
 	start := 0
 	if startPageNumber != nil {
 		start = *startPageNumber
 	}
-	fmt.Println("before search?")
+
 	ok, index, node, parents := search(start, rowId, []*PageParsed{})
 
 	if ok {
-		fmt.Println("update")
-		node.updateData(cell, index)
+		node.updateParsedCells(cell, index)
 		return node
 	} else {
-		// insert condition
-		fmt.Println("insert")
 		node.insertData(cell, firstPage, parents)
 	}
 
 	writer := NewWriter()
-
-	// if node.isOverflow {
-	// 	fmt.Println("overflow for rowid?", rowId)
-	// }
 
 	writer.softwiteToFile(&node, node.pageNumber, firstPage)
 
@@ -651,25 +532,10 @@ func insert(rowId int, cell CreateCell, firstPage *PageParsed, startPageNumber *
 // 2. binary search reuslt it ok
 // 3. done, return result
 
-type Index struct {
-	id              int
-	leftPointer     int
-	leftPointerNull bool
-}
-
-type Node struct {
-	indexes      []Index
-	leaf         bool
-	isOverflow   bool
-	rightPointer int
-	pageNumber   int
-}
-
 func search(pageNumber int, entry int, parents []*PageParsed) (bool, int, PageParsed, []*PageParsed) {
 	reader := NewReader("")
 	page := reader.readFromMemory(pageNumber)
 	ok, newPageNumber, index := binarySearch(page, pageNumber, entry)
-	fmt.Println("result,", ok, newPageNumber, index, page.isLeaf)
 
 	if !ok && page.isLeaf {
 		return false, index, page, parents
@@ -735,11 +601,7 @@ func parseCellArea(data []byte, btreeType BtreeType) Cell {
 	}
 }
 
-// TODO test binary search and search
-
 func binarySearch(page PageParsed, pageNumber int, rowIdAsEntry int) (bool, int, int) {
-
-	fmt.Println("binary search !!, page number, row id", pageNumber, rowIdAsEntry, page.btreeType)
 
 	if len(page.cellAreaParsed) == 0 && page.btreeType == int(TableBtreeLeafCell) {
 		fmt.Println("pointer 0.1")
@@ -747,15 +609,13 @@ func binarySearch(page PageParsed, pageNumber int, rowIdAsEntry int) (bool, int,
 	} else if len(page.cellAreaParsed) == 0 {
 		panic("should never occur, i guess")
 	}
-	fmt.Println("pointer 1")
+
 	cellParsed := parseCellArea(page.cellAreaParsed[0], BtreeType(page.btreeType))
-	fmt.Println("pointer 1.5")
 
 	rightRowId := cellParsed.rowId
-	fmt.Println("right rowid??", rightRowId)
 
 	rightPointerPage := int(DecodeVarint(page.rightMostpointer))
-	fmt.Println("rightPointerPage?", rightPointerPage)
+
 	if page.btreeType == int(TableBtreeInteriorCell) {
 		if rowIdAsEntry > rightRowId && rightPointerPage != 0 {
 			return false, rightPointerPage, 0
@@ -775,20 +635,15 @@ func binarySearch(page PageParsed, pageNumber int, rowIdAsEntry int) (bool, int,
 			cellParsed := parseCellArea(page.cellAreaParsed[i+1], BtreeType(page.btreeType))
 			leftRowId = cellParsed.rowId
 		}
-		if i > 0 {
-			cellParsed := parseCellArea(page.cellAreaParsed[i-1], BtreeType(page.btreeType))
-			rightRowId = cellParsed.rowId
-		}
 
 		v := page.cellAreaParsed[i]
-		// TODO implement for 0x0d
+
 		cellParsed := parseCellArea(v, BtreeType(page.btreeType))
 		rowId := cellParsed.rowId
 
 		if page.isLeaf && rowId == rowIdAsEntry {
 			return true, page.pageNumber, i
 		}
-		fmt.Println("pointer 3")
 
 		// we are on last page
 		if i == len(page.cellAreaParsed)-1 && rowIdAsEntry <= rowId {
@@ -807,14 +662,5 @@ func binarySearch(page PageParsed, pageNumber int, rowIdAsEntry int) (bool, int,
 
 	}
 
-	// for i := 0; i < len(node.cellArea); i++ {
-	// 	if entry == node.indexes[i].id {
-	// 		return true, node.indexes[i].id, node
-	// 	} else if entry < node.indexes[i].id {
-	// 		return false, node.indexes[i].leftPointer, node
-	// 	}
-	// }
 	panic("should never occur, binary search")
 }
-
-// binary searhc???, just basically iterate over celll
