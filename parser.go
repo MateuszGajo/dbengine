@@ -176,6 +176,8 @@ func (page *PageParsed) updateCells(parsedCellArea [][]byte) {
 
 	if !page.isSpace() {
 		page.isOverflow = true
+	} else {
+		page.isOverflow = false
 	}
 
 	var latestRow *LastPageParseLatestRow
@@ -223,8 +225,15 @@ func (parentPage PageParsed) getDivider(pageNumber int) (Divider, int, int) {
 }
 
 // i think we only need to update the higest rowId as we references this
-func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, pageNumber int, firstPage *PageParsed) {
-	for i, v := range page.cellAreaParsed {
+func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, pageNumber int, header *DbHeader) {
+	newCellAreaParsed := make([][]byte, len(page.cellAreaParsed))
+	copy(newCellAreaParsed, page.cellAreaParsed)
+
+	for i := range page.cellAreaParsed {
+		copy(newCellAreaParsed[i], page.cellAreaParsed[i])
+	}
+
+	for i, v := range newCellAreaParsed {
 		pageNumberCell := binary.BigEndian.Uint32(v[:4])
 		rowId := binary.BigEndian.Uint16(v[4:6])
 		if pageNumberCell == uint32(pageNumber) && mostRightRowId == int(rowId) {
@@ -232,28 +241,16 @@ func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, 
 		} else if pageNumberCell == uint32(pageNumber) {
 			newCellArea := intToBinary(pageNumber, 4)
 			newCellArea = append(newCellArea, intToBinary(mostRightRowId, 2)...)
-			page.cellAreaParsed[i] = newCellArea
+			newCellAreaParsed[i] = newCellArea
 			break
-		} else if i == len(page.cellAreaParsed)-1 {
+		} else if i == len(newCellAreaParsed)-1 {
 			panic("last page, didn't find what we looking for")
 		}
 	}
-
-	cellArea := []byte{}
-	pointers := []byte{}
-	lastPointer := PageSize
-
-	for _, v := range page.cellAreaParsed {
-		cellArea = append(cellArea, v...)
-		lastPointer -= len(v)
-		pointers = append(pointers, intToBinary(lastPointer, 2)...)
-	}
-
-	page.pointers = pointers
-	page.cellArea = cellArea
+	page.updateCells(newCellAreaParsed)
 
 	writer := NewWriter()
-	writer.softwiteToFile(page, page.pageNumber, firstPage)
+	writer.softwiteToFile(*page, page.pageNumber, header)
 
 	if len(parents) == 0 {
 		return
@@ -264,19 +261,18 @@ func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, 
 	}
 
 	lastCell := page.cellAreaParsed[0]
-	// mostRightPageNumber := int(binary.BigEndian.Uint16(lastCell[:4]))
 	mostRightRowId = int(binary.BigEndian.Uint16(lastCell[4:6]))
 
 	parent := parents[len(parents)-1]
 	parents = parents[:len(parents)-1]
 
-	updateDivider(parent, parents, mostRightRowId, page.pageNumber, firstPage)
+	updateDivider(parent, parents, mostRightRowId, page.pageNumber, header)
 
 }
 
 // we need update recursively parent too
 
-func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, firstPage *PageParsed, parents []*PageParsed) {
+func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, header *DbHeader, parents []*PageParsed) {
 
 	if page.btreeType != int(TableBtreeInteriorCell) {
 		panic("onyl divider for interior cell tree, update divider")
@@ -301,29 +297,14 @@ func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, fir
 		panic("content area is small")
 	}
 
-	page.cellArea = contentAreaFirst
+	// page.cellArea = contentAreaFirst
+
 	cellAreaParsed := dbReadparseCellArea(byte(page.btreeType), contentAreaFirst)
-	pointers := []byte{}
-	lastPointer := PageSize
-	for _, v := range cellAreaParsed {
-		lastPointer -= len(v)
-		pointers = append(pointers, intToBinary(lastPointer, 2)...)
-	}
 
-	page.rightMostpointer = cellAreaParsed[0][:4]
-	page.cellAreaParsed = cellAreaParsed
-	page.pointers = pointers
-
-	page.numberofCells = len(cellAreaParsed)
-	page.startCellContentArea = PageSize - len(contentAreaFirst)
-	page.cellAreaSize = len(contentAreaFirst)
+	page.updateCells(cellAreaParsed)
 
 	writer := NewWriter()
-	writer.softwiteToFile(page, page.pageNumber, firstPage)
-
-	if page.pageNumber == 0 {
-		firstPage = page
-	}
+	writer.softwiteToFile(*page, page.pageNumber, header)
 
 	if len(parents) == 0 {
 		return
@@ -334,7 +315,7 @@ func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, fir
 	parent := parents[len(parents)-1]
 	parents = parents[:len(parents)-1]
 
-	updateDivider(parent, parents, mostRightRowId, page.pageNumber, firstPage)
+	updateDivider(parent, parents, mostRightRowId, page.pageNumber, header)
 
 	// check if cell area overflow page
 	// writer.writeToFile(assembleDbPage(page), pageNumber, "", firstPage)
@@ -638,8 +619,6 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 			rowId: int(latestRowId),
 			data:  latestRowRaw,
 		}
-		fmt.Println("hello???")
-		fmt.Println(latestRow)
 	}
 
 	return PageParsed{

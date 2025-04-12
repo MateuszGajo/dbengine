@@ -50,16 +50,18 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	// parse query lets assume output bellow
 	createSqlQueryData := parseCreateTableQuery(parsedQuery, input)
 
+	zeroPage := server.reader.readFromMemory(0)
+
 	// rowContentLength, row := createSchemaCell(v.input, v.queryData, parsedData.latesRow)
 
 	// Starting point is 2
 	var pointerInSchemaToData int = 2 // db is not initialize, first page for schema, second for data
 	//first read schema, starting from page 1, we will deal with multipage then
 
-	if len(server.firstPage.latesRow.data) > 3 {
-		latestRowheaderLength := server.firstPage.latesRow.data[2]
-		latestRowHeaders := server.firstPage.latesRow.data[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
-		latestRowValues := server.firstPage.latesRow.data[3-1+int(latestRowheaderLength):]
+	if len(zeroPage.latesRow.data) > 3 {
+		latestRowheaderLength := zeroPage.latesRow.data[2]
+		latestRowHeaders := zeroPage.latesRow.data[3 : 3-1+int(latestRowheaderLength)] // 3 - 1 (-1 because of header length contains itself)
+		latestRowValues := zeroPage.latesRow.data[3-1+int(latestRowheaderLength):]
 		latestRowColumns := parseDbPageColumn(latestRowHeaders, latestRowValues)
 		if len(latestRowColumns) > 3 {
 			if latestRowColumns[3].columnType != "1" {
@@ -71,8 +73,8 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	fmt.Println("pointer to schema??", pointerInSchemaToData)
 
 	rowId := 0
-	if server.firstPage.latesRow != nil {
-		rowId = server.firstPage.latesRow.rowId
+	if zeroPage.latesRow != nil {
+		rowId = zeroPage.latesRow.rowId
 	}
 
 	// Create a cell pass cell that are already there(latest pointer etc), get created cell's length + pointers, i think length is undded, pointer is all we care about, we only need all bytes, currnet cell + new one, + header, there rest should be zeros, for starting cell value we have latest pointers, and pointers array is already there
@@ -80,16 +82,16 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	// ADD cell, defined how many cell we are added and how many values in eachg cell (length will be calculate internally)
 	cell := createCell(TableBtreeLeafCell, rowId, string(createSqlQueryData.objectType), createSqlQueryData.entityName, createSqlQueryData.entityName, pointerInSchemaToData, createSqlQueryData.rawQuery)
 	allCells := cell.data
-	allCells = append(allCells, server.firstPage.cellArea...)
+	allCells = append(allCells, zeroPage.cellArea...)
 	// We need to create/modify/add a btree of type 13 because this is schema, starting of first page, then maybe is overflowing to other, lets stick for this first one for now
 	// writer := NewWriter()
 	// reader := NewReader(server.conId)
-	if server.firstPage.btreeType == 0 {
-		server.firstPage.btreeType = int(TableBtreeLeafCell)
+	if zeroPage.btreeType == 0 {
+		zeroPage.btreeType = int(TableBtreeLeafCell)
 	}
 	// TODO add herre
 
-	insert(cell.rowId, cell, &server.firstPage, nil)
+	insert(cell.rowId, cell, &server.header, nil)
 
 	initRowId := 0
 
@@ -97,21 +99,16 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 
 	writer := NewWriter()
 
-	writer.flushPages("", &server.firstPage)
+	writer.flushPages("")
 
 	// firstPage := parseReadPage(rootPage, 0)
 	// server.firstPage = firstPage
 	// server.firstPage.dbHeader.schemaCookie++
 
 	// // Create empty page for data
-	btreeHeaderForData := updateBtreeHeaderLeafTable(CreateCell{dataLength: 0, data: []byte{}}, nil)
-	zerosLength := PageSize - len(btreeHeaderForData)
-	zerosSpace := make([]byte, zerosLength)
+	newPage := CreateNewPage(TableBtreeLeafCell, [][]byte{}, pointerInSchemaToData-1, &server.header)
 
-	emptyDataPage := btreeHeaderForData
-	emptyDataPage = append(emptyDataPage, zerosSpace...)
-	fmt.Println("writer in create table sql query???")
-	writer.writeToFile(emptyDataPage, pointerInSchemaToData-1, server.conId, &server.firstPage)
+	writer.softwiteToFile(newPage, pointerInSchemaToData-1, &server.header)
 
 }
 
@@ -241,7 +238,9 @@ func (server ServerStruct) handleInsertSqlQuery(parsedQuery []ParsedValue, input
 		return fmt.Errorf("expected " + validInsertObjectType + " got " + parsedQuery[1].data)
 	}
 
-	res := findTableNameInSchemaPage(server.firstPage, parsedQuery[2].data)
+	zeroPage := server.reader.readFromMemory(0)
+
+	res := findTableNameInSchemaPage(zeroPage, parsedQuery[2].data)
 
 	dataStartOnPage := res[3].columnValue
 	if len(dataStartOnPage) > 1 {
@@ -290,13 +289,13 @@ func (server ServerStruct) handleInsertSqlQuery(parsedQuery []ParsedValue, input
 	newRowId := rowId + 1
 	server.sequence[parsedQuery[2].data] = newRowId
 	pageNumber := int(dataStartOnPage[0]) - 1
-	insert(cell.rowId, cell, &server.firstPage, &pageNumber)
+	insert(cell.rowId, cell, &server.header, &pageNumber)
 	// allCells := cell.data
 	// // TODO Concatenate this
 	// allCells = append(allCells, []byte{}...)
 
 	writer := NewWriter()
-	writer.flushPages("", &server.firstPage)
+	writer.flushPages("")
 	// // reader := NewReader(server.conId);
 	// dataPage := res[3].columnValue
 

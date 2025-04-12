@@ -26,36 +26,62 @@ var softWritePages map[int]PageParsed = make(map[int]PageParsed)
 // TOOD: handle retry logic for old data
 var tree bool = false
 
-func (writer WriterStruct) softwiteToFile(data *PageParsed, page int, firstPage *PageParsed) {
-	firstPage.dbHeader.fileChangeCounter++
-	firstPage.dbHeader.versionValidForNumber++
-	if page == firstPage.dbHeader.dbSizeInPages {
-		firstPage.dbHeader.dbSizeInPages++
-	} else if page > firstPage.dbHeader.dbSizeInPages {
+// WE update pages all over the code, so this information its important while saving
+// we update some header information while saving file
+// how to deal with header???
+
+// What about use only header data in server struct?
+// we update header all over the places, but how we attach to the first pagE?
+// first page will have header and header size,
+// lets try use it header insted of first page
+
+func (writer WriterStruct) softwiteToFile(data PageParsed, page int, dbHeader *DbHeader) {
+	// WE need update header here!!!
+	dbHeader.fileChangeCounter++
+	dbHeader.versionValidForNumber++
+	if page == dbHeader.dbSizeInPages {
+		dbHeader.dbSizeInPages++
+	} else if page > dbHeader.dbSizeInPages {
 		panic("don't leave empty space")
 	}
-	if !data.isSpace() {
-		data.isOverflow = true
-	} else {
-		data.isOverflow = false
+
+	if page != data.pageNumber {
+		panic("should never happend, page cant be different than data.pageNumber")
 	}
 
-	softWritePages[page] = *data
+	softWritePages[page] = data
+
+	//Write header
+
+	zeroPage, ok := softWritePages[0]
+
+	if ok {
+		zeroPage.dbHeader = *dbHeader
+		softWritePages[0] = zeroPage
+	} else {
+		panic("should never happend, we shoul always keep zero page in memory")
+	}
+
 }
 
-func (writer WriterStruct) flushPages(conId string, firstPage *PageParsed) {
+func (writer WriterStruct) flushPages(conId string) {
 
 	for _, v := range softWritePages {
-
-		writer.writeToFile(assembleDbPage(v), v.pageNumber, conId, firstPage)
+		fmt.Println("save page", v.pageNumber)
+		if v.pageNumber == 0 {
+			fmt.Println("show me page 0")
+			fmt.Printf("%+v", v)
+		}
+		writer.writeToFile(assembleDbPage(v), v.pageNumber, conId)
 		if v.isOverflow {
+			fmt.Println("page number", v.pageNumber)
+			fmt.Println("is overflow", !v.isSpace())
 			panic("can't save overflow page")
 		}
 	}
-	softWritePages = map[int]PageParsed{}
 }
 
-func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firstPage *PageParsed) {
+func (writer WriterStruct) writeToFile(data []byte, page int, conId string) {
 
 	_, exists := softWritePages[page]
 
@@ -67,22 +93,6 @@ func (writer WriterStruct) writeToFile(data []byte, page int, conId string, firs
 	if page == 0 {
 		return
 	}
-
-	firstPage.dbHeader.fileChangeCounter++
-	firstPage.dbHeader.versionValidForNumber++
-	if page == firstPage.dbHeader.dbSizeInPages {
-		firstPage.dbHeader.dbSizeInPages++
-	} else if page > firstPage.dbHeader.dbSizeInPages {
-		fmt.Println(page)
-		fmt.Println("is greater than number of paghes")
-		fmt.Println(firstPage.dbHeader.dbSizeInPages)
-		panic("don't leave empty space")
-	}
-	//TODO fix it
-
-	// assembledPage := assembleDbPage(*firstPage)
-
-	// writer.WriteToFileWithRetry(assembledPage, 0, conId)
 
 }
 

@@ -86,7 +86,7 @@ func exectueCommand(input string) {
 
 	parsedData := parseReadPage(data, 0)
 
-	server.firstPage = parsedData
+	server.header = parsedData.dbHeader
 
 	err := server.handleActionType(parsedQuery, input)
 
@@ -96,12 +96,12 @@ func exectueCommand(input string) {
 }
 
 type ServerStruct struct {
-	firstPage PageParsed
-	pageSize  int
-	conId     string
-	dbInfo    DbInfo
-	reader    *PageReader
-	writer    *WriterStruct
+	header   DbHeader
+	pageSize int
+	conId    string
+	dbInfo   DbInfo
+	reader   *PageReader
+	writer   *WriterStruct
 	// Stores tables' row id
 	sequence map[string]int
 }

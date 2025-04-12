@@ -36,7 +36,7 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var firstPage = PageParsed{
@@ -74,10 +74,10 @@ func TestShouldFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 	}
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
+	writer.softwiteToFile(thirdPage, 3, &server.header)
 	found, _, page, parents := search(0, 7, []*PageParsed{})
 
 	if !found {
@@ -162,7 +162,7 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 	var firstPage = PageParsed{
 		dbHeader:             DbHeader{},
@@ -200,10 +200,10 @@ func TestShouldNotFindResultSingleInteriorPlusLeafPage(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
+	writer.softwiteToFile(thirdPage, 3, &server.header)
 	found, _, page, parents := search(0, 13, []*PageParsed{})
 
 	if found {
@@ -240,7 +240,7 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var sixthPage = PageParsed{
@@ -318,14 +318,14 @@ func TestShouldFindResultMultipleInteriorPlusLeafPage(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(fourthPage), 4, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(PageParsed{}), 5, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(sixthPage), 6, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(seventhPage), 7, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
+	writer.softwiteToFile(thirdPage, 3, &server.header)
+	writer.softwiteToFile(fourthPage, 4, &server.header)
+	writer.softwiteToFile(CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, 5, nil), 5, &server.header)
+	writer.softwiteToFile(sixthPage, 6, &server.header)
+	writer.softwiteToFile(seventhPage, 7, &server.header)
 	found, _, pageFound, parents := search(0, 7, []*PageParsed{})
 
 	if !found {
@@ -447,7 +447,7 @@ func TestUpdateDividerSameAmount(t *testing.T) {
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}, {rowId: 13, pageNumber: 3}}
 
-	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
+	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage.dbHeader, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -500,7 +500,7 @@ func TestUpdateDividerLessAmount(t *testing.T) {
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}}
 
-	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
+	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage.dbHeader, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -553,7 +553,7 @@ func TestUpdateDividerGreaterAmount(t *testing.T) {
 
 	cells := []Cell{{rowId: 9, pageNumber: 2}, {rowId: 13, pageNumber: 3}, {rowId: 14, pageNumber: 5}}
 
-	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage, []*PageParsed{})
+	modifyDivider(&zeroPage, cells, 6, 6*3, &zeroPage.dbHeader, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -602,7 +602,7 @@ func TestUpdateTestRightMostPointerWhenUpdatePointerWithNewPage(t *testing.T) {
 
 	cells := []Cell{{rowId: 18, pageNumber: 5}}
 
-	modifyDivider(&zeroPage, cells, 0, 6, &zeroPage, []*PageParsed{})
+	modifyDivider(&zeroPage, cells, 0, 6, &zeroPage.dbHeader, []*PageParsed{})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -674,7 +674,10 @@ func TestUpdateDividerWithParentUpdate(t *testing.T) {
 
 	cells := []Cell{{rowId: 18, pageNumber: 5}}
 
-	modifyDivider(&firstPage, cells, 0, 6, &zeroPage, []*PageParsed{&zeroPage})
+	writer := NewWriter()
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+
+	modifyDivider(&firstPage, cells, 0, 6, &zeroPage.dbHeader, []*PageParsed{&zeroPage})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -763,11 +766,11 @@ func TestUpdateDividerWithParentandGrandParentUpdate(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.softwiteToFile(&zeroPage, 0, &zeroPage)
-	writer.softwiteToFile(&firstPage, 1, &zeroPage)
-	writer.softwiteToFile(&secondPage, 2, &zeroPage)
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+	writer.softwiteToFile(firstPage, 1, &zeroPage.dbHeader)
+	writer.softwiteToFile(secondPage, 2, &zeroPage.dbHeader)
 
-	modifyDivider(&secondPage, cells, 0, 6, &zeroPage, []*PageParsed{&zeroPage, &firstPage})
+	modifyDivider(&secondPage, cells, 0, 6, &zeroPage.dbHeader, []*PageParsed{&zeroPage, &firstPage})
 
 	reader := NewReader("")
 	zeroPageMemory := reader.readFromMemory(0)
@@ -870,9 +873,9 @@ func TestFindSiblingOnlyRightSiblingsAsLastPointer(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.softwiteToFile(&zeroPage, 0, &zeroPage)
-	writer.softwiteToFile(&firstPage, 1, &zeroPage)
-	writer.softwiteToFile(&secondPage, 2, &zeroPage)
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+	writer.softwiteToFile(firstPage, 1, &zeroPage.dbHeader)
+	writer.softwiteToFile(secondPage, 2, &zeroPage.dbHeader)
 
 	leftSibling, rightSibling := zeroPage.findSiblings(firstPage)
 
@@ -939,9 +942,9 @@ func TestFindSiblingOnlyLeftSiblingsAsFirst(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.softwiteToFile(&zeroPage, 0, &zeroPage)
-	writer.softwiteToFile(&firstPage, 1, &zeroPage)
-	writer.softwiteToFile(&secondPage, 2, &zeroPage)
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+	writer.softwiteToFile(firstPage, 1, &zeroPage.dbHeader)
+	writer.softwiteToFile(secondPage, 2, &zeroPage.dbHeader)
 
 	leftSibling, rightSibling := zeroPage.findSiblings(secondPage)
 
@@ -1022,10 +1025,10 @@ func TestFindSiblingBothSiblings(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.softwiteToFile(&zeroPage, 0, &zeroPage)
-	writer.softwiteToFile(&firstPage, 1, &zeroPage)
-	writer.softwiteToFile(&secondPage, 2, &zeroPage)
-	writer.softwiteToFile(&thirdPage, 2, &zeroPage)
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+	writer.softwiteToFile(firstPage, 1, &zeroPage.dbHeader)
+	writer.softwiteToFile(secondPage, 2, &zeroPage.dbHeader)
+	writer.softwiteToFile(thirdPage, 3, &zeroPage.dbHeader)
 
 	leftSibling, rightSibling := zeroPage.findSiblings(secondPage)
 
@@ -1078,8 +1081,8 @@ func TestFindSiblingNoSiblings(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.softwiteToFile(&zeroPage, 0, &zeroPage)
-	writer.softwiteToFile(&firstPage, 1, &zeroPage)
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+	writer.softwiteToFile(firstPage, 1, &zeroPage.dbHeader)
 
 	leftSibling, rightSibling := zeroPage.findSiblings(firstPage)
 
@@ -1182,7 +1185,7 @@ func TestInsertNewData(t *testing.T) {
 
 	newCell := createCell(TableBtreeLeafCell, 1, "Alice")
 
-	firstPage.insertData(newCell, &zeroPage, []*PageParsed{&zeroPage})
+	firstPage.insertData(newCell, &zeroPage.dbHeader, []*PageParsed{&zeroPage})
 
 	expectedCellArea := append([]byte{}, newCell.data...)
 	expectedCellArea = append(expectedCellArea, cell.data...)
@@ -1243,8 +1246,10 @@ func TestBalancingSplitRootIntTwoChildren(t *testing.T) {
 
 	writer := NewWriter()
 
-	balancingForNode(firstPage, []*PageParsed{}, &zeroPage)
-	writer.flushPages("", &zeroPage)
+	writer.softwiteToFile(zeroPage, 0, &zeroPage.dbHeader)
+
+	balancingForNode(firstPage, []*PageParsed{}, &zeroPage.dbHeader)
+	writer.flushPages("")
 
 	reader := NewReader("")
 
@@ -1332,21 +1337,22 @@ func TestBalancingSplitRootIntOneChild(t *testing.T) {
 
 	usableSpacePerPage = 9 * 4
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	writer := NewWriter()
 	reader := NewReader("")
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	balancingForNode(zeroPage, []*PageParsed{}, &server.firstPage)
-	writer.flushPages("", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	balancingForNode(zeroPage, []*PageParsed{}, &server.header)
+
+	writer.flushPages("")
 
 	zeroPageSaved := reader.readFromMemory(0)
 	firstPageSaved := reader.readFromMemory(1)
 
-	if server.firstPage.dbHeader.dbSizeInPages != 2 {
-		t.Errorf("Expected number of pages to be 2, got: %v", server.firstPage.dbHeader.dbSizeInPages)
+	if server.header.dbSizeInPages != 2 {
+		t.Errorf("Expected number of pages to be 2, got: %v", server.header.dbSizeInPages)
 	}
 
 	zeroPageExpectedCellArea := []byte{0, 0, 0, 1, 0, 4}
@@ -1389,7 +1395,8 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 	clearDbFile("test")
 	cellAreaParsed := [][]byte{{7, 4, 2, 23, 65, 108, 105, 99, 101}, {7, 3, 2, 23, 65, 108, 105, 99, 101}, {7, 2, 2, 23, 65, 108, 105, 99, 101}, {7, 1, 2, 23, 65, 108, 105, 99, 101}}
 	cellArea := []byte{7, 4, 2, 23, 65, 108, 105, 99, 101, 7, 3, 2, 23, 65, 108, 105, 99, 101, 7, 2, 2, 23, 65, 108, 105, 99, 101, 7, 1, 2, 23, 65, 108, 105, 99, 101}
-	var zeroPage = PageParsed{
+	var zeroPage = CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{}, 0, &DbHeader{})
+	var firstPage = PageParsed{
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		pageNumber:           1,
@@ -1405,7 +1412,7 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 		isOverflow:           false,
 	}
 
-	var firstPage = PageParsed{
+	var secondPage = PageParsed{
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		pageNumber:           2,
@@ -1423,28 +1430,25 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 	PageSize = 9*2 + 2*3 + 8
 	// usableSpacePerPage = 9 * 3
 	server := ServerStruct{
-		firstPage: PageParsed{
-			dbHeader: DbHeader{
-				dbSizeInPages: 3,
-			},
-		},
+		header: zeroPage.dbHeader,
 	}
 
 	writer := NewWriter()
 	reader := NewReader("")
 
-	// writer.softwiteToFile(&zeroPage, 0, &server.firstPage)
-	// writer.softwiteToFile(&firstPage, 1, &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
 
-	balancingForNode(firstPage, []*PageParsed{&zeroPage}, &server.firstPage)
-	writer.flushPages("", &server.firstPage)
+	balancingForNode(secondPage, []*PageParsed{&firstPage}, &server.header)
+	writer.flushPages("")
 
 	zeroPageSaved := reader.readFromMemory(1)
 	firstPageSaved := reader.readFromMemory(2)
 	secondPageSaved := reader.readFromMemory(3)
 
-	if server.firstPage.dbHeader.dbSizeInPages != 4 {
-		t.Errorf("Expected number of pages to be 4, got: %v", server.firstPage.dbHeader.dbSizeInPages)
+	if server.header.dbSizeInPages != 4 {
+		t.Errorf("Expected number of pages to be 4, got: %v", server.header.dbSizeInPages)
 	}
 
 	zeroPageExpectedCellArea := []byte{0, 0, 0, 3, 0, 4, 0, 0, 0, 2, 0, 2}
@@ -1527,12 +1531,12 @@ func TestBinarySearchInInteriorForNewValueHighestRowId(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
 
 	found, pageNumber, _ := binarySearch(zeroPage, 0, 4)
 
@@ -1561,7 +1565,7 @@ func TestBinarySearchInLeafForExisitngValue(t *testing.T) {
 		dbHeader:             header(),
 		dbHeaderSize:         100,
 		btreePageHeaderSize:  8,
-		pageNumber:           2,
+		pageNumber:           0,
 		cellAreaParsed:       cellAreaParsed,
 		btreeType:            int(TableBtreeLeafCell),
 		cellArea:             cellArea,
@@ -1575,7 +1579,7 @@ func TestBinarySearchInLeafForExisitngValue(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(secondPage), 0, "", &PageParsed{})
+	writer.softwiteToFile(secondPage, 0, &DbHeader{})
 
 	found, pageNumber, cellAreaParsedIndex := binarySearch(secondPage, 0, 2)
 
@@ -1583,8 +1587,8 @@ func TestBinarySearchInLeafForExisitngValue(t *testing.T) {
 		t.Errorf("Expected value to be found, as its already exists")
 	}
 
-	if pageNumber != 2 {
-		t.Errorf("expected new value to be update on page 2, instead we got: %v", pageNumber)
+	if pageNumber != 0 {
+		t.Errorf("expected new value to be update on page 0, instead we got: %v", pageNumber)
 	}
 
 	if cellAreaParsedIndex != 0 {
@@ -1610,7 +1614,7 @@ func TestInsert(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var sixthPage = PageParsed{
@@ -1688,16 +1692,16 @@ func TestInsert(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(fourthPage), 4, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(PageParsed{}), 5, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(sixthPage), 6, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(seventhPage), 7, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
+	writer.softwiteToFile(thirdPage, 3, &server.header)
+	writer.softwiteToFile(fourthPage, 4, &server.header)
+	writer.softwiteToFile(CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, 5, nil), 5, &server.header)
+	writer.softwiteToFile(sixthPage, 6, &server.header)
+	writer.softwiteToFile(seventhPage, 7, &server.header)
 	cell := createCell(TableBtreeLeafCell, 17)
-	node := insert(17, cell, &server.firstPage, nil)
+	node := insert(17, cell, &server.header, nil)
 
 	if node.pageNumber != 4 {
 		t.Errorf("Insert values should be in page: %v, instead we got: %v", 4, node.pageNumber)
@@ -1730,7 +1734,7 @@ func TestInsertToExisting(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var sixthPage = PageParsed{
@@ -1806,16 +1810,16 @@ func TestInsertToExisting(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(thirdPage), 3, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(fourthPage), 4, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(PageParsed{}), 5, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(sixthPage), 6, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(seventhPage), 7, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
+	writer.softwiteToFile(thirdPage, 3, &server.header)
+	writer.softwiteToFile(fourthPage, 4, &server.header)
+	writer.softwiteToFile(CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, 5, nil), 5, &server.header)
+	writer.softwiteToFile(sixthPage, 6, &server.header)
+	writer.softwiteToFile(seventhPage, 7, &server.header)
 	cell := createCell(TableBtreeLeafCell, 4, "Alice")
-	node := insert(4, cell, &server.firstPage, nil)
+	node := insert(4, cell, &server.header, nil)
 
 	if node.pageNumber != 1 {
 		t.Errorf("Insert values should be in page: %v, instead we got: %v", 4, node.pageNumber)
@@ -1857,7 +1861,7 @@ func TestInsertOneRecord(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var firstPage = PageParsed{
@@ -1877,7 +1881,7 @@ func TestInsertOneRecord(t *testing.T) {
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		btreePageHeaderSize:  8,
-		pageNumber:           1,
+		pageNumber:           2,
 		btreeType:            int(TableBtreeLeafCell),
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
@@ -1888,13 +1892,13 @@ func TestInsertOneRecord(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
 
 	rowId := 3
 	cell := createCell(TableBtreeLeafCell, rowId, "aliceAndBob129876theEnd12345")
-	insert(rowId, cell, &server.firstPage, nil)
+	insert(rowId, cell, &server.header, nil)
 
 	reader := NewReader("fd")
 
@@ -1940,7 +1944,7 @@ func TestInsertMultipleRecord(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var firstPage = PageParsed{
@@ -1959,7 +1963,7 @@ func TestInsertMultipleRecord(t *testing.T) {
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		btreePageHeaderSize:  8,
-		pageNumber:           1,
+		pageNumber:           2,
 		btreeType:            int(TableBtreeLeafCell),
 		cellAreaParsed:       [][]byte{},
 		startCellContentArea: PageSize,
@@ -1969,15 +1973,15 @@ func TestInsertMultipleRecord(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
 
 	cell1 := createCell(TableBtreeLeafCell, 3, "aliceAndBob129876theEnd12345")
-	insert(3, cell1, &server.firstPage, nil)
+	insert(3, cell1, &server.header, nil)
 
 	cell2 := createCell(TableBtreeLeafCell, 4, "aliceAndBob129876theEnd12345")
-	insert(4, cell2, &server.firstPage, nil)
+	insert(4, cell2, &server.header, nil)
 
 	reader := NewReader("fd")
 
@@ -2040,7 +2044,7 @@ func TestInsertOverflowPage(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var firstPage = PageParsed{
@@ -2062,7 +2066,7 @@ func TestInsertOverflowPage(t *testing.T) {
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		btreePageHeaderSize:  8,
-		pageNumber:           1,
+		pageNumber:           2,
 		numberofCells:        1,
 		btreeType:            int(TableBtreeLeafCell),
 		cellAreaParsed:       cellParsed,
@@ -2075,18 +2079,18 @@ func TestInsertOverflowPage(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
 
 	cell1 := creareARowItem(100, 3)
-	insert(2, cell1, &server.firstPage, nil)
+	insert(2, cell1, &server.header, nil)
 
 	cell2 := creareARowItem(100, 4)
-	insert(3, cell2, &server.firstPage, nil)
+	insert(3, cell2, &server.header, nil)
 
 	cell3 := creareARowItem(100, 5)
-	insert(4, cell3, &server.firstPage, nil)
+	insert(4, cell3, &server.header, nil)
 
 	reader := NewReader("fd")
 
@@ -2138,6 +2142,8 @@ func TestLeafBias(t *testing.T) {
 		t.Errorf("Expected number of cell per page in second page to be: %v, got :%v", 1, numberOfCellPerPage[1])
 	}
 }
+
+// fix this, rething it
 func TestInsertWithInteriorNested(t *testing.T) {
 	clearDbFile("test")
 	PageSize = 300
@@ -2159,7 +2165,7 @@ func TestInsertWithInteriorNested(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var firstPage = PageParsed{
@@ -2182,7 +2188,7 @@ func TestInsertWithInteriorNested(t *testing.T) {
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		btreePageHeaderSize:  8,
-		pageNumber:           1,
+		pageNumber:           2,
 		numberofCells:        1,
 		btreeType:            int(TableBtreeLeafCell),
 		cellAreaParsed:       cellParsed,
@@ -2196,13 +2202,13 @@ func TestInsertWithInteriorNested(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
 
 	for i := 3; i < 74; i++ {
 		cell1 := creareARowItem(100, i)
-		insert(i, cell1, &server.firstPage, nil)
+		insert(i, cell1, &server.header, nil)
 
 	}
 	cmd := exec.Command("clear")
@@ -2212,9 +2218,17 @@ func TestInsertWithInteriorNested(t *testing.T) {
 	// for i := 88; i < 89; i++ {
 	// 	fmt.Println("iteration", i)
 	// 	cell1 := creareARowItem(100, i)
-	// 	insert(i, cell1, &server.firstPage, nil)
+	// 	insert(i, cell1, &server.header, nil)
 
 	// }
+
+	// PageSize: 300
+	// firstpage: 300 - 100 (main header) = 200
+	// 200 - 12 (interior pointer) = 188
+	// every time has 6 byes + 2 pointer = 8
+	// 188/8 = 23 items on the first page, before split
+
+	// every leaf page contains two itesm, meaning 23 * 2, first page should fit from 0 til 46, then should split
 
 	// 23 * 6 = 138 + 23 *2 = 138+46 = 184 + 8 = 192 + header (100) = 292
 	// we can max fit 23, then we need to split
@@ -2281,7 +2295,7 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 
 	var firstPage = PageParsed{
@@ -2304,7 +2318,7 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 		dbHeader:             DbHeader{},
 		dbHeaderSize:         0,
 		btreePageHeaderSize:  8,
-		pageNumber:           1,
+		pageNumber:           2,
 		numberofCells:        1,
 		btreeType:            int(TableBtreeLeafCell),
 		cellAreaParsed:       cellParsed,
@@ -2318,13 +2332,13 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(secondPage), 2, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
+	writer.softwiteToFile(secondPage, 2, &server.header)
 
 	for i := 3; i < 75; i++ {
 		cell1 := creareARowItem(100, i)
-		insert(i, cell1, &server.firstPage, nil)
+		insert(i, cell1, &server.header, nil)
 
 	}
 	cmd := exec.Command("clear")
@@ -2431,7 +2445,7 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 	}
 
 	server := ServerStruct{
-		firstPage: zeroPage,
+		header: zeroPage.dbHeader,
 	}
 	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
@@ -2452,12 +2466,12 @@ func TestInsertWithInteriorNestedSplittedSix(t *testing.T) {
 
 	writer := NewWriter()
 
-	writer.writeToFile(assembleDbPage(zeroPage), 0, "", &server.firstPage)
-	writer.writeToFile(assembleDbPage(firstPage), 1, "", &server.firstPage)
+	writer.softwiteToFile(zeroPage, 0, &server.header)
+	writer.softwiteToFile(firstPage, 1, &server.header)
 
 	for i := 3; i < 120; i++ {
 		cell1 := creareARowItem(100, i)
-		insert(i, cell1, &server.firstPage, nil)
+		insert(i, cell1, &server.header, nil)
 
 	}
 

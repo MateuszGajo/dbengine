@@ -171,7 +171,7 @@ func (parentPage PageParsed) findSiblings(currentNode PageParsed) (*PageParsed, 
 	panic("should never enter here")
 }
 
-func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PageParsed) {
+func balancingForNode(node PageParsed, parents []*PageParsed, header *DbHeader) {
 
 	siblings := []PageParsed{}
 
@@ -180,6 +180,10 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 	if !node.isOverflow {
 		return
 	}
+	// fmt.Println("overflow??!!!")
+	// fmt.Println("overflow??!!!")
+	// fmt.Println("overflow??!!!")
+	// fmt.Println("overflow??!!!", node.pageNumber)
 
 	var parent PageParsed
 
@@ -189,26 +193,29 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 
 		cellArea := []byte{}
 		cell := parseCellArea(node.cellAreaParsed[0], BtreeType(node.btreeType))
-		cellArea = append(cellArea, intToBinary(firstPage.dbHeader.dbSizeInPages, 4)...)
+
+		cellArea = append(cellArea, intToBinary(header.dbSizeInPages, 4)...)
 		cellArea = append(cellArea, intToBinary(cell.rowId, 2)...)
 		parsedCellArea := append([][]byte{}, cellArea)
-		var header *DbHeader
+
+		var headerForRootPage *DbHeader
 		if node.pageNumber == 0 {
-			header = &node.dbHeader
+			headerForRootPage = &node.dbHeader
 		}
 
-		rootPage := CreateNewPage(TableBtreeInteriorCell, parsedCellArea, node.pageNumber, header)
+		rootPage := CreateNewPage(TableBtreeInteriorCell, parsedCellArea, node.pageNumber, headerForRootPage)
 
 		node.dbHeaderSize = 0
 		node.dbHeader = DbHeader{}
 		parents = append(parents, &rootPage)
-		node.pageNumber = firstPage.dbHeader.dbSizeInPages
+		node.pageNumber = header.dbSizeInPages
 
-		firstPage.dbHeader.dbSizeInPages++
+		header.dbSizeInPages++
 
-		writer.softwiteToFile(&node, node.pageNumber, firstPage)
-		writer.softwiteToFile(&rootPage, rootPage.pageNumber, firstPage)
+		writer.softwiteToFile(node, node.pageNumber, header)
+		writer.softwiteToFile(rootPage, rootPage.pageNumber, header)
 	}
+
 	usableSpacePerPage = PageSize - node.btreePageHeaderSize - node.dbHeaderSize - len(node.pointers)
 
 	if len(parents) > 0 {
@@ -228,6 +235,8 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 	if rightSibling != nil {
 		siblings = append(siblings, *rightSibling)
 	}
+
+	fmt.Println("endpoint1")
 
 	cellToDistribute := []Cell{}
 	startIndex := PageSize
@@ -259,7 +268,8 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 	totalSizeInEachPage, numberOfCellPerPage = accountForUnderflowToardsRight(totalSizeInEachPage, numberOfCellPerPage, cellToDistribute, node)
 
 	for len(siblings) < len(numberOfCellPerPage) {
-		newPage := CreateNewPage(BtreeType(node.btreeType), [][]byte{}, firstPage.dbHeader.assignNewPage(), nil)
+		newPage := CreateNewPage(BtreeType(node.btreeType), [][]byte{}, header.assignNewPage(), nil)
+		fmt.Println("new page??")
 		siblings = append(siblings, newPage)
 	}
 	for len(numberOfCellPerPage) < len(siblings) {
@@ -270,6 +280,8 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 	for i, v := range pages {
 		rowData := []byte{}
 		//again start from the last
+		// fmt.Println("what are we saving here?")
+		// fmt.Println(siblings[i].pageNumber)
 		for j, _ := range v {
 			index := len(v) - 1 - j
 
@@ -278,12 +290,12 @@ func balancingForNode(node PageParsed, parents []*PageParsed, firstPage *PagePar
 		}
 		siblings[i].updateCells(dbReadparseCellArea(byte(siblings[i].btreeType), rowData))
 
-		writer.writeToFile(assembleDbPage(siblings[i]), siblings[i].pageNumber, "", firstPage)
+		writer.softwiteToFile(siblings[i], siblings[i].pageNumber, header)
 	}
 
-	modifyDivider(&parent, deivider, startIndex, endIndex, firstPage, parents)
+	modifyDivider(&parent, deivider, startIndex, endIndex, header, parents)
 
-	balancingForNode(parent, parents, firstPage)
+	balancingForNode(parent, parents, header)
 
 }
 
@@ -434,7 +446,7 @@ func (page *PageParsed) isSpace() bool {
 	return (page.cellAreaSize + page.btreePageHeaderSize + page.dbHeaderSize + len(page.pointers)) < PageSize
 }
 
-func (page *PageParsed) insertData(data CreateCell, firstPage *PageParsed, parents []*PageParsed) {
+func (page *PageParsed) insertData(data CreateCell, header *DbHeader, parents []*PageParsed) {
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
@@ -449,7 +461,7 @@ func (page *PageParsed) insertData(data CreateCell, firstPage *PageParsed, paren
 				rowId:      data.rowId,
 			}
 
-			modifyDivider(parent, []Cell{cell}, startIndex, endIndex, firstPage, parents)
+			modifyDivider(parent, []Cell{cell}, startIndex, endIndex, header, parents)
 		} else {
 			panic("should never happen, insert data")
 		}
@@ -468,7 +480,7 @@ func (page *PageParsed) updateParsedCells(data CreateCell, index int) {
 	page.updateCells(page.cellAreaParsed)
 }
 
-func insert(rowId int, cell CreateCell, firstPage *PageParsed, startPageNumber *int) PageParsed {
+func insert(rowId int, cell CreateCell, header *DbHeader, startPageNumber *int) PageParsed {
 
 	start := 0
 	if startPageNumber != nil {
@@ -481,14 +493,14 @@ func insert(rowId int, cell CreateCell, firstPage *PageParsed, startPageNumber *
 		node.updateParsedCells(cell, index)
 		return node
 	} else {
-		node.insertData(cell, firstPage, parents)
+		node.insertData(cell, header, parents)
 	}
 
 	writer := NewWriter()
 
-	writer.softwiteToFile(&node, node.pageNumber, firstPage)
+	writer.softwiteToFile(node, node.pageNumber, header)
 
-	balancingForNode(node, parents, firstPage)
+	balancingForNode(node, parents, header)
 
 	return node
 }
@@ -535,6 +547,7 @@ func insert(rowId int, cell CreateCell, firstPage *PageParsed, startPageNumber *
 func search(pageNumber int, entry int, parents []*PageParsed) (bool, int, PageParsed, []*PageParsed) {
 	reader := NewReader("")
 	page := reader.readFromMemory(pageNumber)
+
 	ok, newPageNumber, index := binarySearch(page, pageNumber, entry)
 
 	if !ok && page.isLeaf {
