@@ -97,6 +97,7 @@ type PageParsed struct {
 	isOverflow           bool
 	pageNumber           int
 	isLeaf               bool
+	isDirty              bool
 }
 
 func (dbHeader *DbHeader) assignNewPage() int {
@@ -127,6 +128,7 @@ func CreateNewPage(btreeType BtreeType, parsedCellArea [][]byte, pageNumber int,
 		framgenetedArea:     0,
 		isLeaf:              isLeaf,
 		isOverflow:          false,
+		isDirty:             false,
 	}
 
 	if dbHeader != nil {
@@ -144,6 +146,10 @@ func CreateNewPage(btreeType BtreeType, parsedCellArea [][]byte, pageNumber int,
 }
 
 func (page *PageParsed) updateCells(parsedCellArea [][]byte) {
+
+	if reflect.DeepEqual(page.cellAreaParsed, parsedCellArea) {
+		return
+	}
 	cellAreaStart := PageSize
 	pointers := []byte{}
 	cellArea := []byte{}
@@ -249,9 +255,6 @@ func updateDivider(page *PageParsed, parents []*PageParsed, mostRightRowId int, 
 	}
 	page.updateCells(newCellAreaParsed)
 
-	writer := NewWriter()
-	writer.softwiteToFile(*page, page.pageNumber, header)
-
 	if len(parents) == 0 {
 		return
 	}
@@ -302,9 +305,6 @@ func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, hea
 	cellAreaParsed := dbReadparseCellArea(byte(page.btreeType), contentAreaFirst)
 
 	page.updateCells(cellAreaParsed)
-
-	writer := NewWriter()
-	writer.softwiteToFile(*page, page.pageNumber, header)
 
 	if len(parents) == 0 {
 		return
@@ -492,6 +492,7 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 				rowId: 0,
 				data:  []byte{},
 			},
+			isDirty: false,
 		}
 	}
 
@@ -639,5 +640,6 @@ func parseReadPage(data []byte, dbPage int) PageParsed {
 		freeBlock:            int(freeBlocksInt),
 		pointers:             pointers,
 		latesRow:             &latestRow,
+		isDirty:              false,
 	}
 }

@@ -22,7 +22,7 @@ func NewReader(conId string) *PageReader {
 }
 
 func (reader PageReader) readFromMemory(pageNumber int) PageParsed {
-	for _, v := range softWritePages {
+	for _, v := range memoryPages {
 		if v.pageNumber == pageNumber {
 			return v
 		}

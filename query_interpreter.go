@@ -91,7 +91,11 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 	}
 	// TODO add herre
 
-	insert(cell.rowId, cell, &server.header, nil)
+	btree := BtreeStruct{
+		softPages: server.softWritePages,
+	}
+
+	btree.insert(cell.rowId, cell, &server.header, nil)
 
 	initRowId := 0
 
@@ -99,16 +103,14 @@ func (server *ServerStruct) handleCreateTableSqlQuery(parsedQuery []ParsedValue,
 
 	writer := NewWriter()
 
-	writer.flushPages("")
-
 	// firstPage := parseReadPage(rootPage, 0)
 	// server.firstPage = firstPage
 	// server.firstPage.dbHeader.schemaCookie++
 
 	// // Create empty page for data
-	newPage := CreateNewPage(TableBtreeLeafCell, [][]byte{}, pointerInSchemaToData-1, &server.header)
-
-	writer.softwiteToFile(newPage, pointerInSchemaToData-1, &server.header)
+	newPage := CreateNewPage(TableBtreeLeafCell, [][]byte{}, pointerInSchemaToData-1, nil)
+	server.softWritePages[pointerInSchemaToData-1] = newPage
+	writer.flushPages("", &server.header, btree.softPages)
 
 }
 
@@ -289,13 +291,17 @@ func (server ServerStruct) handleInsertSqlQuery(parsedQuery []ParsedValue, input
 	newRowId := rowId + 1
 	server.sequence[parsedQuery[2].data] = newRowId
 	pageNumber := int(dataStartOnPage[0]) - 1
-	insert(cell.rowId, cell, &server.header, &pageNumber)
+
+	btree := BtreeStruct{
+		softPages: server.softWritePages,
+	}
+	btree.insert(cell.rowId, cell, &server.header, &pageNumber)
 	// allCells := cell.data
 	// // TODO Concatenate this
 	// allCells = append(allCells, []byte{}...)
 
 	writer := NewWriter()
-	writer.flushPages("")
+	writer.flushPages("", &server.header, server.softWritePages)
 	// // reader := NewReader(server.conId);
 	// dataPage := res[3].columnValue
 

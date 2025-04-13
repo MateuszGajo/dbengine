@@ -67,12 +67,13 @@ func exectueCommand(input string) {
 	conId := pseudo_uuid()
 
 	server := ServerStruct{
-		pageSize: PageSize,
-		conId:    conId,
-		dbInfo:   DbInfo{},
-		reader:   NewReader(conId),
-		writer:   NewWriter(),
-		sequence: sequence,
+		pageSize:       PageSize,
+		conId:          conId,
+		dbInfo:         DbInfo{},
+		reader:         NewReader(conId),
+		writer:         NewWriter(),
+		sequence:       sequence,
+		softWritePages: make(map[int]PageParsed),
 	}
 
 	data := NewReader(server.conId).readDbPage(0)
@@ -103,7 +104,8 @@ type ServerStruct struct {
 	reader   *PageReader
 	writer   *WriterStruct
 	// Stores tables' row id
-	sequence map[string]int
+	sequence       map[string]int
+	softWritePages map[int]PageParsed
 }
 
 var sequence = make(map[string]int)
