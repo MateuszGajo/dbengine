@@ -111,6 +111,8 @@ func CreateNewPage(btreeType BtreeType, parsedCellArea [][]byte, pageNumber int,
 	if btreeType != TableBtreeLeafCell && btreeType != TableBtreeInteriorCell {
 		panic("unsupported tree type")
 	}
+	parsedCellAreaNoReference := make([][]byte, len(parsedCellArea))
+	copy(parsedCellAreaNoReference, parsedCellArea)
 
 	btreePageHeaderSize := 8
 	isLeaf := true
@@ -139,7 +141,7 @@ func CreateNewPage(btreeType BtreeType, parsedCellArea [][]byte, pageNumber int,
 		page.dbHeaderSize = 100
 	}
 
-	page.updateCells(parsedCellArea)
+	page.updateCells(parsedCellAreaNoReference)
 
 	return page
 
@@ -283,7 +285,8 @@ func modifyDivider(page *PageParsed, cells []Cell, startIndex, endIndex int, hea
 	if len(cells) == 0 {
 		panic("cells are empty")
 	}
-	cellArea := page.cellArea
+	cellArea := make([]byte, len(page.cellArea))
+	copy(cellArea, page.cellArea)
 
 	contentAreaFirst := append([]byte{}, cellArea[:startIndex]...)
 	contentAreaSecond := append([]byte{}, cellArea[endIndex:]...)

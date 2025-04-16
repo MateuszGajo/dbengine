@@ -520,30 +520,16 @@ func TestInsertNewData(t *testing.T) {
 
 func TestBalancingSplitRootIntTwoChildren(t *testing.T) {
 	clearDbFile("test")
+	PageSize = 9*2 + 2*2 + 8
+
 	cellAreaParsed := [][]byte{{7, 4, 2, 23, 65, 108, 105, 99, 101}, {7, 3, 2, 23, 65, 108, 105, 99, 101}, {7, 2, 2, 23, 65, 108, 105, 99, 101}, {7, 1, 2, 23, 65, 108, 105, 99, 101}}
-	cellArea := []byte{7, 4, 2, 23, 65, 108, 105, 99, 101, 7, 3, 2, 23, 65, 108, 105, 99, 101, 7, 2, 2, 23, 65, 108, 105, 99, 101, 7, 1, 2, 23, 65, 108, 105, 99, 101}
-	var zeroPage = PageParsed{
+	zeroPage := PageParsed{
 		dbHeader: DbHeader{
 			dbSizeInPages: 2,
 		},
 	}
-
-	var firstPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           1,
-		btreePageHeaderSize:  8,
-		numberofCells:        len(cellAreaParsed),
-		cellAreaParsed:       cellAreaParsed,
-		btreeType:            int(TableBtreeLeafCell),
-		rightMostpointer:     []byte{},
-		cellArea:             cellArea,
-		isLeaf:               true,
-		startCellContentArea: PageSize - 9*4,
-		isOverflow:           true,
-	}
-
-	PageSize = 9*2 + 2*2 + 8
+	firstPage := CreateNewPage(BtreeType(TableBtreeLeafCell), cellAreaParsed, 1, nil)
+	firstPage.isOverflow = true
 
 	btree := BtreeStruct{
 		softPages: map[int]PageParsed{},
@@ -570,61 +556,26 @@ func TestBalancingSplitRootIntTwoChildren(t *testing.T) {
 
 func TestBalancingSplitRootIntOneChild(t *testing.T) {
 	clearDbFile("test")
-	cellAreaParsed := [][]byte{{7, 4, 2, 23, 65, 108, 105, 99, 101}, {7, 3, 2, 23, 65, 108, 105, 99, 101}, {7, 2, 2, 23, 65, 108, 105, 99, 101}, {7, 1, 2, 23, 65, 108, 105, 99, 101}}
-	cellArea := []byte{7, 4, 2, 23, 65, 108, 105, 99, 101, 7, 3, 2, 23, 65, 108, 105, 99, 101, 7, 2, 2, 23, 65, 108, 105, 99, 101, 7, 1, 2, 23, 65, 108, 105, 99, 101}
-	pointers := append([]byte{}, intToBinary(PageSize-9, 2)...)
-	pointers = append(pointers, intToBinary(PageSize-9*2, 2)...)
-	pointers = append(pointers, intToBinary(PageSize-9*3, 2)...)
-	pointers = append(pointers, intToBinary(PageSize-9*4, 2)...)
-	var zeroPage = PageParsed{
-		dbHeader:             header(),
-		dbHeaderSize:         100,
-		pageNumber:           0,
-		numberofCells:        len(cellAreaParsed),
-		cellAreaParsed:       cellAreaParsed,
-		btreeType:            int(TableBtreeLeafCell),
-		rightMostpointer:     []byte{},
-		cellArea:             cellArea,
-		isLeaf:               true,
-		startCellContentArea: PageSize - 9*4,
-		isOverflow:           true,
-		cellAreaSize:         len(cellArea),
-		pointers:             pointers,
-	}
 
+	cellAreaParsed := [][]byte{{7, 4, 2, 23, 65, 108, 105, 99, 101}, {7, 3, 2, 23, 65, 108, 105, 99, 101}, {7, 2, 2, 23, 65, 108, 105, 99, 101}, {7, 1, 2, 23, 65, 108, 105, 99, 101}}
+	header := header()
+	zeroPage := CreateNewPage(BtreeType(TableBtreeLeafCell), cellAreaParsed, 0, &header)
+	zeroPage.isOverflow = true
 	server := ServerStruct{
 		header: zeroPage.dbHeader,
 	}
-
 	memoryPages[zeroPage.pageNumber] = zeroPage
-
 	btree := BtreeStruct{
 		softPages: map[int]PageParsed{},
 	}
+
 	btree.balancingForNode(&zeroPage, []*PageParsed{}, &server.header)
 
 	zeroPageSaved := btree.softPages[0]
 	firstPageSaved := btree.softPages[1]
 
-	if server.header.dbSizeInPages != 2 {
-		t.Errorf("Expected number of pages to be 2, got: %v", server.header.dbSizeInPages)
-	}
-
 	utilsTestContent(t, [][]byte{{0, 0, 0, 1, 0, 4}}, TableBtreeInteriorCell, 0, zeroPageSaved)
 	utilsTestContent(t, cellAreaParsed, TableBtreeLeafCell, 1, firstPageSaved)
-
-	if !reflect.DeepEqual(firstPageSaved.cellAreaParsed, cellAreaParsed) {
-		t.Errorf("expected cell area parsed to be: %v, instead we got: %v", cellAreaParsed, firstPageSaved.cellAreaParsed)
-	}
-
-	if firstPageSaved.numberofCells != 4 {
-		t.Errorf("expected first page to have 4 cells, instead we have: %v", firstPageSaved.numberofCells)
-	}
-
-	if !reflect.DeepEqual(firstPageSaved.cellArea, cellArea) {
-		t.Errorf("Expected first page cell area to be: %v, instead we got: %v", firstPageSaved.cellArea, cellArea)
-	}
-
 }
 
 var PointerToDataLength = 2
@@ -635,21 +586,16 @@ var (
 	BtreeHeaderSizeLeafTable BtreeHeaderSize = 8
 )
 
-// // work on this
 func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 	clearDbFile("test")
+
 	cellAreaParsed := [][]byte{{7, 4, 2, 23, 65, 108, 105, 99, 101}, {7, 3, 2, 23, 65, 108, 105, 99, 101}, {7, 2, 2, 23, 65, 108, 105, 99, 101}, {7, 1, 2, 23, 65, 108, 105, 99, 101}}
 	PageSize = len(cellAreaParsed[0])*2 + PointerToDataLength*2 + int(BtreeHeaderSizeLeafTable)
-
 	server := ServerStruct{
-		header: DbHeader{},
+		header: DbHeader{dbSizeInPages: 1},
 	}
-
-	CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{}, server.header.assignNewPage(), &server.header)
-
 	firstPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 4}}, server.header.assignNewPage(), nil)
 	secondPage := CreateNewPage(BtreeType(TableBtreeLeafCell), cellAreaParsed, server.header.assignNewPage(), nil)
-
 	btree := BtreeStruct{
 		softPages: map[int]PageParsed{},
 	}
@@ -676,22 +622,9 @@ func TestBalancingSplitOneLeaftPageIntoTwo(t *testing.T) {
 
 func TestBinarySearchInInteriorForNewValueHighestRowId(t *testing.T) {
 	clearDbFile("test")
-	var zeroPage = PageParsed{
-		dbHeader:             header(),
-		dbHeaderSize:         100,
-		btreePageHeaderSize:  12,
-		pageNumber:           0,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 1, 0, 0}, {0, 0, 0, 2, 0, 3}},
-		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 2},
-		cellArea:             []byte{0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 3},
-		cellAreaSize:         12,
-		numberofCells:        1,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
 
-		isLeaf: false,
-	}
+	header := DbHeader{}
+	var zeroPage = CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 3}, {0, 0, 0, 1, 0, 0}}, header.assignNewPage(), &header)
 
 	memoryPages[zeroPage.pageNumber] = zeroPage
 
@@ -709,34 +642,17 @@ func TestBinarySearchInInteriorForNewValueHighestRowId(t *testing.T) {
 
 func TestBinarySearchInLeafForExisitngValue(t *testing.T) {
 	clearDbFile("test")
+
 	cell1 := createCell(TableBtreeLeafCell, 0, "alice")
 	cell2 := createCell(TableBtreeLeafCell, 1, "bob")
 	cell3 := createCell(TableBtreeLeafCell, 2, "tom")
+	cellAreaParsed := append([][]byte{}, cell3.data)
+	cellAreaParsed = append(cellAreaParsed, cell2.data)
+	cellAreaParsed = append(cellAreaParsed, cell1.data)
+	var zeroPage = CreateNewPage(BtreeType(TableBtreeLeafCell), cellAreaParsed, 0, nil)
+	memoryPages[zeroPage.pageNumber] = zeroPage
 
-	cellArea := append([]byte{}, cell3.data...)
-	cellArea = append(cellArea, cell2.data...)
-	cellArea = append(cellArea, cell1.data...)
-	cellAreaParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cellArea)
-
-	var secondPage = PageParsed{
-		dbHeader:             header(),
-		dbHeaderSize:         100,
-		btreePageHeaderSize:  8,
-		pageNumber:           0,
-		cellAreaParsed:       cellAreaParsed,
-		btreeType:            int(TableBtreeLeafCell),
-		cellArea:             cellArea,
-		cellAreaSize:         3 * cell1.dataLength,
-		numberofCells:        3,
-		startCellContentArea: PageSize - 3*cell1.dataLength,
-		isOverflow:           false,
-
-		isLeaf: true,
-	}
-
-	memoryPages[secondPage.pageNumber] = secondPage
-
-	found, pageNumber, cellAreaParsedIndex := binarySearch(secondPage, 0, 2)
+	found, pageNumber, cellAreaParsedIndex := binarySearch(zeroPage, 0, 2)
 
 	if !found {
 		t.Errorf("Expected value to be found, as its already exists")
@@ -754,109 +670,32 @@ func TestBinarySearchInLeafForExisitngValue(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	clearDbFile("test")
-	var zeroPage = PageParsed{
-		dbHeader:             header(),
-		dbHeaderSize:         100,
-		pageNumber:           0,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 6, 0, 7}, {0, 0, 0, 7, 0, 16}},
-		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 7},
-		cellArea:             []byte{0, 0, 0, 6, 0, 7, 0, 0, 0, 7, 0, 16},
-		numberofCells:        2,
-		cellAreaSize:         12,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
-	}
 
+	header := DbHeader{}
+	zeroPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 7, 0, 16}, {0, 0, 0, 6, 0, 7}}, header.assignNewPage(), &header)
 	server := ServerStruct{
-		header: zeroPage.dbHeader,
+		header: header,
 	}
-
-	var sixthPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           6,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 1, 0, 4}, {0, 0, 0, 2, 0, 7}},
-		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 2},
-		cellArea:             []byte{0, 0, 0, 1, 0, 4, 0, 0, 0, 2, 0, 7},
-		numberofCells:        2,
-		cellAreaSize:         12,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
-	}
-
-	var seventhPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           7,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 3, 0, 12}, {0, 0, 0, 4, 0, 16}},
-		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 4},
-		cellArea:             []byte{0, 0, 0, 3, 0, 12, 0, 0, 0, 4, 0, 16},
-		numberofCells:        2,
-		cellAreaSize:         12,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
-	}
-
-	var firstPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (4 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-	var secondPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           2,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (3 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-	var thirdPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           3,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (5 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-	var fourthPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           4,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 16, 0, 0, 0, 0}, []byte{4, 15, 0, 0, 0, 0}, []byte{4, 14, 0, 0, 0, 0}, []byte{4, 13, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (4 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
+	firstPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 4, 0, 0, 0, 0}, {4, 3, 0, 0, 0, 0}, {4, 2, 0, 0, 0, 0}, {4, 1, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	secondPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 7, 0, 0, 0, 0}, {4, 6, 0, 0, 0, 0}, {4, 5, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	thirdPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 12, 0, 0, 0, 0}, {4, 11, 0, 0, 0, 0}, {4, 10, 0, 0, 0, 0}, {4, 9, 0, 0, 0, 0}, {4, 8, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	fourthPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 16, 0, 0, 0, 0}, {4, 15, 0, 0, 0, 0}, {4, 14, 0, 0, 0, 0}, {4, 13, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	fifthPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
+	sixthPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 7}, {0, 0, 0, 1, 0, 4}}, header.assignNewPage(), nil)
+	seventhPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}}, header.assignNewPage(), nil)
 
 	memoryPages[zeroPage.pageNumber] = zeroPage
 	memoryPages[firstPage.pageNumber] = firstPage
 	memoryPages[secondPage.pageNumber] = secondPage
 	memoryPages[thirdPage.pageNumber] = thirdPage
 	memoryPages[fourthPage.pageNumber] = fourthPage
-	memoryPages[5] = CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, 5, nil)
+	memoryPages[fifthPage.pageNumber] = fifthPage
 	memoryPages[sixthPage.pageNumber] = sixthPage
 	memoryPages[seventhPage.pageNumber] = seventhPage
-
 	btree := BtreeStruct{
 		softPages: map[int]PageParsed{},
 	}
+
 	cell := createCell(TableBtreeLeafCell, 17)
 	node := btree.insert(17, cell, &server.header, nil)
 
@@ -874,103 +713,28 @@ func TestInsert(t *testing.T) {
 
 }
 
-// noe lets remove hardcoded data
 func TestInsertToExisting(t *testing.T) {
 	clearDbFile("test")
-	var zeroPage = PageParsed{
-		dbHeader:         header(),
-		dbHeaderSize:     100,
-		pageNumber:       0,
-		cellAreaParsed:   [][]byte{{0, 0, 0, 6, 0, 7}},
-		btreeType:        int(TableBtreeInteriorCell),
-		rightMostpointer: []byte{0, 0, 0, 7},
-		cellArea:         []byte{0, 0, 0, 6, 0, 7},
 
-		startCellContentArea: PageSize - 6,
-		isOverflow:           false,
-	}
-
+	header := DbHeader{}
+	zeroPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 7, 0, 16}, {0, 0, 0, 6, 0, 7}}, header.assignNewPage(), &header)
 	server := ServerStruct{
-		header: zeroPage.dbHeader,
+		header: header,
 	}
-
-	var sixthPage = PageParsed{
-		dbHeader:         DbHeader{},
-		dbHeaderSize:     0,
-		pageNumber:       6,
-		cellAreaParsed:   [][]byte{{0, 0, 0, 1, 0, 4}},
-		btreeType:        int(TableBtreeInteriorCell),
-		rightMostpointer: []byte{0, 0, 0, 2},
-		cellArea:         []byte{0, 0, 0, 1, 0, 4},
-
-		startCellContentArea: PageSize - 6,
-		isOverflow:           false,
-	}
-
-	var seventhPage = PageParsed{
-		dbHeader:         DbHeader{},
-		dbHeaderSize:     0,
-		pageNumber:       7,
-		cellAreaParsed:   [][]byte{{0, 0, 0, 3, 0, 12}},
-		btreeType:        int(TableBtreeInteriorCell),
-		rightMostpointer: []byte{0, 0, 0, 4},
-		cellArea:         []byte{0, 0, 0, 3, 0, 12},
-
-		startCellContentArea: PageSize - 6,
-		isOverflow:           false,
-	}
-
-	var firstPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 4, 0, 0, 0, 0}, []byte{4, 3, 0, 0, 0, 0}, []byte{4, 2, 0, 0, 0, 0}, []byte{4, 1, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (4 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-	var secondPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           2,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 7, 0, 0, 0, 0}, []byte{4, 6, 0, 0, 0, 0}, []byte{4, 5, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (3 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-	var thirdPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           3,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 12, 0, 0, 0, 0}, []byte{4, 11, 0, 0, 0, 0}, []byte{4, 10, 0, 0, 0, 0}, []byte{4, 9, 0, 0, 0, 0}, []byte{4, 8, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (5 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-	var fourthPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		pageNumber:           4,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{[]byte{4, 16, 0, 0, 0, 0}, []byte{4, 15, 0, 0, 0, 0}, []byte{4, 14, 0, 0, 0, 0}, []byte{4, 13, 0, 0, 0, 0}},
-		startCellContentArea: PageSize - (4 * 6),
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
+	firstPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 4, 0, 0, 0, 0}, {4, 3, 0, 0, 0, 0}, {4, 2, 0, 0, 0, 0}, {4, 1, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	secondPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 7, 0, 0, 0, 0}, {4, 6, 0, 0, 0, 0}, {4, 5, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	thirdPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 12, 0, 0, 0, 0}, {4, 11, 0, 0, 0, 0}, {4, 10, 0, 0, 0, 0}, {4, 9, 0, 0, 0, 0}, {4, 8, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	fourthPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{{4, 16, 0, 0, 0, 0}, {4, 15, 0, 0, 0, 0}, {4, 14, 0, 0, 0, 0}, {4, 13, 0, 0, 0, 0}}, header.assignNewPage(), nil)
+	fifthPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
+	sixthPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 7}, {0, 0, 0, 1, 0, 4}}, header.assignNewPage(), nil)
+	seventhPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 4, 0, 16}, {0, 0, 0, 3, 0, 12}}, header.assignNewPage(), nil)
 
 	memoryPages[zeroPage.pageNumber] = zeroPage
 	memoryPages[firstPage.pageNumber] = firstPage
 	memoryPages[secondPage.pageNumber] = secondPage
 	memoryPages[thirdPage.pageNumber] = thirdPage
 	memoryPages[fourthPage.pageNumber] = fourthPage
-	memoryPages[5] = CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, 5, nil)
+	memoryPages[fifthPage.pageNumber] = fifthPage
 	memoryPages[sixthPage.pageNumber] = sixthPage
 	memoryPages[seventhPage.pageNumber] = seventhPage
 
@@ -994,59 +758,15 @@ func TestInsertToExisting(t *testing.T) {
 
 }
 
-// //finish this one
-
-// right most pointer points to right page with another values 0x05 or 0x0d
-// cell  area contains all right most page 0, 0, 0, 2, 0, , but additonal has rowid, not like right most page
 func TestInsertOneRecord(t *testing.T) {
 	clearDbFile("test")
-	var zeroPage = PageParsed{
-		dbHeader:            header(),
-		dbHeaderSize:        100,
-		btreePageHeaderSize: 12,
-		pageNumber:          0,
-		cellAreaParsed:      [][]byte{{0, 0, 0, 1, 0, 1}, {0, 0, 0, 2, 0, 2}},
-		btreeType:           int(TableBtreeInteriorCell),
-		// remove right most pointer???
-		rightMostpointer:     []byte{0, 0, 0, 2},
-		cellArea:             []byte{0, 0, 0, 1, 0, 1, 0, 0, 0, 2, 0, 2},
-		cellAreaSize:         12,
-		numberofCells:        2,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
-
-		isLeaf: false,
-	}
-
+	header := DbHeader{}
 	server := ServerStruct{
-		header: zeroPage.dbHeader,
+		header: header,
 	}
-
-	var firstPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{},
-		startCellContentArea: PageSize,
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
-
-	var secondPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           2,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{},
-		startCellContentArea: PageSize,
-		isOverflow:           true,
-
-		isLeaf: true,
-	}
+	zeroPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 2}, {0, 0, 0, 1, 0, 1}}, header.assignNewPage(), &header)
+	firstPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
+	secondPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
 
 	memoryPages[zeroPage.pageNumber] = zeroPage
 	memoryPages[firstPage.pageNumber] = firstPage
@@ -1059,12 +779,10 @@ func TestInsertOneRecord(t *testing.T) {
 	cell := createCell(TableBtreeLeafCell, rowId, "aliceAndBob129876theEnd12345")
 	btree.insert(rowId, cell, &server.header, nil)
 
-	// reader := NewReader("fd")
-
 	secondPageSaved := btree.softPages[2]
 	zeroPageSaved := btree.softPages[0]
 
-	zeroPageExpectedCellArea := []byte{0, 0, 0, 1, 0, 1, 0, 0, 0, 2, 0, 3}
+	zeroPageExpectedCellArea := []byte{0, 0, 0, 2, 0, 3, 0, 0, 0, 1, 0, 1}
 
 	if !reflect.DeepEqual(zeroPageSaved.cellArea, zeroPageExpectedCellArea) {
 		t.Errorf("expected cell area on zero page to be: %v, insted we got: %v", zeroPageExpectedCellArea, zeroPageSaved.cellArea)
@@ -1086,49 +804,13 @@ func TestInsertOneRecord(t *testing.T) {
 
 func TestInsertMultipleRecord(t *testing.T) {
 	clearDbFile("test")
-	var zeroPage = PageParsed{
-		dbHeader:             header(),
-		dbHeaderSize:         100,
-		btreePageHeaderSize:  12,
-		pageNumber:           0,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 2, 0, 2}, {0, 0, 0, 1, 0, 1}},
-		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 2},
-		cellArea:             []byte{0, 0, 0, 2, 0, 2, 0, 0, 0, 1, 0, 1},
-		cellAreaSize:         12,
-		numberofCells:        2,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
-		isLeaf:               false,
-	}
-
+	header := DbHeader{}
 	server := ServerStruct{
-		header: zeroPage.dbHeader,
+		header: header,
 	}
-
-	var firstPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{},
-		startCellContentArea: PageSize,
-		isOverflow:           true,
-		isLeaf:               true,
-	}
-
-	var secondPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           2,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{},
-		startCellContentArea: PageSize,
-		isOverflow:           true,
-		isLeaf:               true,
-	}
+	zeroPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 2}, {0, 0, 0, 1, 0, 1}}, header.assignNewPage(), &header)
+	firstPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
+	secondPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
 
 	btree := BtreeStruct{
 		softPages: map[int]PageParsed{},
@@ -1147,31 +829,13 @@ func TestInsertMultipleRecord(t *testing.T) {
 	secondPageSaved := btree.softPages[2]
 	zeroPageSaved := btree.softPages[0]
 
-	zeroPageExpectedCellArea := []byte{0, 0, 0, 2, 0, 4, 0, 0, 0, 1, 0, 1}
+	zeroPageExpectedCellAreaParsed := [][]byte{{0, 0, 0, 2, 0, 4}, {0, 0, 0, 1, 0, 1}}
+	secondPageExpectedCellAreaParsed := append([][]byte{}, cell2.data)
+	secondPageExpectedCellAreaParsed = append(secondPageExpectedCellAreaParsed, cell1.data)
 
-	if !reflect.DeepEqual(zeroPageSaved.cellArea, zeroPageExpectedCellArea) {
-		t.Errorf("expected cell area on zero page to be: %v, insted we got: %v", zeroPageExpectedCellArea, zeroPageSaved.cellArea)
-	}
-
-	if secondPageSaved.numberofCells != 2 {
-		t.Errorf("expected to have: %v cells, instead we got: %v", 2, secondPageSaved.numberofCells)
-	}
-
-	parsedData := dbReadparseCellArea(byte(TableBtreeLeafCell), secondPageSaved.cellArea)
-
-	if !reflect.DeepEqual(parsedData, secondPageSaved.cellAreaParsed) {
-		t.Errorf("expected parsed celle area to be equal to cell area: %v, instead we got: %v", parsedData, secondPageSaved.cellArea)
-	}
-
-	expectedCellArea := append([]byte{}, cell2.data...)
-	expectedCellArea = append(expectedCellArea, cell1.data...)
-
-	if !reflect.DeepEqual(secondPageSaved.cellArea, expectedCellArea) {
-		t.Errorf("expected cell area to be: %v, got: %v", expectedCellArea, secondPageSaved.cellArea)
-	}
+	utilsTestContent(t, zeroPageExpectedCellAreaParsed, TableBtreeInteriorCell, 0, zeroPageSaved)
+	utilsTestContent(t, secondPageExpectedCellAreaParsed, TableBtreeLeafCell, 2, secondPageSaved)
 }
-
-// //start debugging this
 
 func creareARowItem(length int, rowId int) CreateCell {
 
@@ -1185,56 +849,15 @@ func creareARowItem(length int, rowId int) CreateCell {
 func TestInsertOverflowPage(t *testing.T) {
 	clearDbFile("test")
 	PageSize = 350
-	var zeroPage = PageParsed{
-		dbHeader:             header(),
-		dbHeaderSize:         100,
-		btreePageHeaderSize:  12,
-		pageNumber:           0,
-		cellAreaParsed:       [][]byte{{0, 0, 0, 2, 0, 1}, {0, 0, 0, 1, 0, 0}},
-		btreeType:            int(TableBtreeInteriorCell),
-		rightMostpointer:     []byte{0, 0, 0, 2},
-		cellArea:             []byte{0, 0, 0, 2, 0, 1, 0, 0, 0, 1, 0, 0},
-		cellAreaSize:         12,
-		numberofCells:        2,
-		startCellContentArea: PageSize - 12,
-		isOverflow:           false,
-
-		isLeaf: false,
-	}
-
+	header := DbHeader{}
 	server := ServerStruct{
-		header: zeroPage.dbHeader,
+		header: header,
 	}
-
-	var firstPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       [][]byte{},
-		startCellContentArea: PageSize,
-		isOverflow:           false,
-		isLeaf:               true,
-	}
-
 	cell := creareARowItem(100, 2)
 	cellParsed := dbReadparseCellArea(byte(TableBtreeLeafCell), cell.data)
-
-	var secondPage = PageParsed{
-		dbHeader:             DbHeader{},
-		dbHeaderSize:         0,
-		btreePageHeaderSize:  8,
-		pageNumber:           2,
-		numberofCells:        1,
-		btreeType:            int(TableBtreeLeafCell),
-		cellAreaParsed:       cellParsed,
-		startCellContentArea: PageSize - cell.dataLength,
-		cellAreaSize:         cell.dataLength,
-		cellArea:             cell.data,
-		isOverflow:           false,
-		isLeaf:               true,
-	}
+	zeroPage := CreateNewPage(BtreeType(TableBtreeInteriorCell), [][]byte{{0, 0, 0, 2, 0, 1}, {0, 0, 0, 1, 0, 0}}, header.assignNewPage(), &header)
+	firstPage := CreateNewPage(BtreeType(TableBtreeLeafCell), [][]byte{}, header.assignNewPage(), nil)
+	secondPage := CreateNewPage(BtreeType(TableBtreeLeafCell), cellParsed, header.assignNewPage(), nil)
 
 	btree := BtreeStruct{
 		softPages: map[int]PageParsed{0: zeroPage, 1: firstPage, 2: secondPage},
@@ -1252,40 +875,18 @@ func TestInsertOverflowPage(t *testing.T) {
 	cell2 := creareARowItem(100, 4)
 	btree.insert(3, cell2, &server.header, nil)
 	memoryPages = btree.softPages
-	fmt.Println("afeer csexcond, lets see page number twoo")
-	fmt.Printf("%+v", btree.softPages[2])
-	fmt.Println("afeer csexcond, lets see page number twoo")
 
 	cell3 := creareARowItem(100, 5)
 	btree.insert(4, cell3, &server.header, nil)
-	fmt.Println("afeer third, lets see page number twoo")
-	fmt.Printf("%+v", btree.softPages[2])
-	fmt.Println("afeer third, lets see page number twoo")
 
 	secondPageSaved := btree.softPages[2]
 	zeroPageSaved := btree.softPages[0]
 
-	zeroPageExpectedCellArea := []byte{0, 0, 0, 2, 0, 4, 0, 0, 0, 1, 0, 3}
+	zeroPageExpectedCellAreaParsed := [][]byte{{0, 0, 0, 2, 0, 4}, {0, 0, 0, 1, 0, 3}}
+	secondPageExpectedCellAreaParsed := append([][]byte{}, cell3.data)
 
-	if !reflect.DeepEqual(zeroPageSaved.cellArea, zeroPageExpectedCellArea) {
-		t.Errorf("expected cell area on zero page to be: %v, insted we got: %v", zeroPageExpectedCellArea, zeroPageSaved.cellArea)
-	}
-
-	if secondPageSaved.numberofCells != 1 {
-		t.Errorf("expected to have one cell, instead we got: %v", secondPageSaved.numberofCells)
-	}
-
-	parsedData := dbReadparseCellArea(byte(TableBtreeLeafCell), secondPageSaved.cellArea)
-
-	if !reflect.DeepEqual(parsedData, secondPageSaved.cellAreaParsed) {
-		t.Errorf("expected parsed celle area to be equal to cell area: %v, instead we got: %v", parsedData, secondPageSaved.cellArea)
-	}
-
-	expectedCellArea := append([]byte{}, cell3.data...)
-
-	if !reflect.DeepEqual(secondPageSaved.cellArea, expectedCellArea) {
-		t.Errorf("expected cell area to be: %v, got: %v", expectedCellArea, secondPageSaved.cellArea)
-	}
+	utilsTestContent(t, zeroPageExpectedCellAreaParsed, TableBtreeInteriorCell, 0, zeroPageSaved)
+	utilsTestContent(t, secondPageExpectedCellAreaParsed, TableBtreeLeafCell, 2, secondPageSaved)
 }
 
 func TestLeafBias(t *testing.T) {
@@ -1355,30 +956,9 @@ func TestInsertWithInteriorNested(t *testing.T) {
 	zeroPageSaved := reader.readFromMemory(0)
 	twentyFifthPageSaved := reader.readFromMemory(25)
 
-	expectedCellAreaContentPageZero := []byte{0, 0, 0, 25, 0, 72}
+	expectedCellAreaParsedPageZero := [][]byte{{0, 0, 0, 25, 0, 72}}
 
-	expectedCellAreaParsedContentPageZero := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaContentPageZero)
-	if !reflect.DeepEqual(zeroPageSaved.cellArea, expectedCellAreaContentPageZero) {
-		t.Errorf("Expected page zero cell area to be: %v, instead we got: %v", expectedCellAreaContentPageZero, zeroPageSaved.cellArea)
-	}
-
-	if !reflect.DeepEqual(zeroPageSaved.cellAreaParsed, expectedCellAreaParsedContentPageZero) {
-		t.Errorf("Expected page zero cell area parsed to be: %v, instead we got: %v", expectedCellAreaParsedContentPageZero, zeroPageSaved.cellAreaParsed)
-	}
-
-	if zeroPageSaved.numberofCells != 1 {
-		t.Errorf("Expected page zero to have only 1 cell, instead we got: %v", zeroPageSaved.numberofCells)
-	}
-
-	expectedPointerPageZero := intToBinary(PageSize-len(expectedCellAreaContentPageZero), 2)
-
-	if !reflect.DeepEqual(zeroPageSaved.pointers, expectedPointerPageZero) {
-		t.Errorf("Expected page zero pointers to be: %v, instead we got: %v", zeroPageSaved.pointers, expectedPointerPageZero)
-	}
-
-	if zeroPageSaved.startCellContentArea != PageSize-len(expectedCellAreaContentPageZero) {
-		t.Errorf("expected cell area to start at :%v, instead we got: %v", PageSize-len(expectedCellAreaContentPageZero), zeroPageSaved.startCellContentArea)
-	}
+	utilsTestContent(t, expectedCellAreaParsedPageZero, TableBtreeInteriorCell, 0, zeroPageSaved)
 
 	expectedLastCellAreaTwentyFifthPage := []byte{0, 0, 0, 37, 0, 72}
 	expectedFirstCellAreaTwentyFifthPage := []byte{0, 0, 0, 1, 0, 2}
@@ -1431,40 +1011,9 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	thirtEightPageSaved := reader.readFromMemory(39)
 	fmt.Printf("%+v", thirtEightPageSaved)
 
-	expectedCellAreaContentPageZero := []byte{0, 0, 0, 39, 0, 73, 0, 0, 0, 25, 0, 38}
-	expectedRightMostPointerPageZero := []byte{0, 0, 0, 39}
+	expectedCellAreaContentPageZero := [][]byte{{0, 0, 0, 39, 0, 73}, {0, 0, 0, 25, 0, 38}}
 
-	expectedCellAreaParsedContentPageZero := dbReadparseCellArea(byte(TableBtreeInteriorCell), expectedCellAreaContentPageZero)
-	if !reflect.DeepEqual(zeroPageSaved.cellArea, expectedCellAreaContentPageZero) {
-		t.Errorf("Expected page zero cell area to be: %v, instead we got: %v", expectedCellAreaContentPageZero, zeroPageSaved.cellArea)
-	}
-
-	if !reflect.DeepEqual(zeroPageSaved.cellAreaParsed, expectedCellAreaParsedContentPageZero) {
-		t.Errorf("Expected page zero cell area parsed to be: %v, instead we got: %v", expectedCellAreaParsedContentPageZero, zeroPageSaved.cellAreaParsed)
-	}
-
-	if zeroPageSaved.numberofCells != 2 {
-		t.Errorf("Expected page zero to have only 1 cell, instead we got: %v", zeroPageSaved.numberofCells)
-	}
-
-	if zeroPageSaved.btreePageHeaderSize != 12 {
-		t.Errorf("Expected header size to be:%v got: %v", 12, zeroPageSaved.btreePageHeaderSize)
-	}
-
-	expectedPointerPageZero := append([]byte{}, intToBinary(PageSize-6, 2)...)
-	expectedPointerPageZero = append(expectedPointerPageZero, intToBinary(PageSize-(6*2), 2)...)
-
-	if !reflect.DeepEqual(zeroPageSaved.pointers, expectedPointerPageZero) {
-		t.Errorf("Expected page zero pointers to be: %v, instead we got: %v", zeroPageSaved.pointers, expectedPointerPageZero)
-	}
-
-	if zeroPageSaved.startCellContentArea != PageSize-len(expectedCellAreaContentPageZero) {
-		t.Errorf("expected cell area to start at :%v, instead we got: %v", PageSize-len(expectedCellAreaContentPageZero), zeroPageSaved.startCellContentArea)
-	}
-
-	if !reflect.DeepEqual(expectedRightMostPointerPageZero, zeroPageSaved.rightMostpointer) {
-		t.Errorf("expected zero page right most pointer to be: %v, instead we got: %v", expectedRightMostPointerPageZero, zeroPageSaved.rightMostpointer)
-	}
+	utilsTestContent(t, expectedCellAreaContentPageZero, TableBtreeInteriorCell, 0, zeroPageSaved)
 
 	expectedLastCellAreaTwentyFifthPage := []byte{0, 0, 0, 19, 0, 38}
 	expectedFirstCellAreaTwentyFifthPage := []byte{0, 0, 0, 1, 0, 2}
@@ -1497,7 +1046,7 @@ func TestInsertWithInteriorNestedSplitted(t *testing.T) {
 	}
 
 	expectedRightMostPointerThirthyEightPage := []byte{0, 0, 0, 38}
-	//fix this pointer
+
 	if !reflect.DeepEqual(thirtEightPageSaved.rightMostpointer, expectedRightMostPointerThirthyEightPage) {
 		t.Errorf("Expected thirty eight page right most pointer to be: %v, got: %v", expectedRightMostPointerThirthyEightPage, thirtEightPageSaved.rightMostpointer)
 	}
