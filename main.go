@@ -57,9 +57,7 @@ var dbName = "db"
 // ````````````````````````````
 // ````````````````````````````
 // ````````````````````````````
-// 1.Validate if schema exist before adding value
-// 1. Add data to have multiple pages, multiple pages for schema too, implement this
-// 2. Write more e2e test
+// 1. select queries, optimizer
 
 func exectueCommand(input string) {
 	_, parsedQuery := genericParser(input)
